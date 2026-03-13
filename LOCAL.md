@@ -23,6 +23,6 @@ Run a local model using llama-server with the following command:
 Then start kon:
 
 ```bash
-uv run kon --model unsloth/Qwen3.5-9B-GGUF --provider openai --base-url http://localhost:5000/v1 --api-key ""
+kon --model unsloth/Qwen3.5-9B-GGUF --provider openai --base-url http://localhost:5000/v1 --api-key ""
 ```
 
