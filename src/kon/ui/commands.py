@@ -195,6 +195,7 @@ Keybindings:
                 model=model.id,
                 max_tokens=get_max_tokens(model.id),
                 thinking_level=self._thinking_level,
+                provider=model.provider,
             )
             try:
                 self._provider = self._create_provider(model.api, provider_config)

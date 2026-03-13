@@ -25,6 +25,7 @@ from ...core.types import (
     UserMessage,
 )
 from ..base import BaseProvider, LLMStream, ProviderConfig
+from .openai_compat import supports_developer_role
 from .sanitize import sanitize_surrogates
 
 COPILOT_HEADERS = {
@@ -276,7 +277,12 @@ class OpenAIResponsesProvider(BaseProvider):
         result: list[dict[str, Any]] = []
 
         if system_prompt:
-            result.append({"role": "developer", "content": sanitize_surrogates(system_prompt)})
+            role = (
+                "developer"
+                if supports_developer_role(self.config.provider, self.config.base_url)
+                else "system"
+            )
+            result.append({"role": role, "content": sanitize_surrogates(system_prompt)})
 
         pending_images: list[ImageContent] = []
 

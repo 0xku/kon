@@ -32,6 +32,7 @@ from ...core.types import (
     UserMessage,
 )
 from ..base import BaseProvider, LLMStream, ProviderConfig
+from .openai_compat import supports_developer_role
 from .sanitize import sanitize_surrogates
 
 
@@ -45,7 +46,13 @@ class OpenAICompletionsCompat:
 
 
 def _detect_compat(provider: str, base_url: str) -> OpenAICompletionsCompat:
-    is_zai = provider == "zai" or provider == "zhipu" or "api.z.ai" in base_url
+    normalized_provider = provider.lower()
+    normalized_base_url = base_url.lower()
+    is_zai = (
+        normalized_provider == "zai"
+        or normalized_provider == "zhipu"
+        or "api.z.ai" in normalized_base_url
+    )
 
     if is_zai:
         return OpenAICompletionsCompat(
@@ -55,7 +62,9 @@ def _detect_compat(provider: str, base_url: str) -> OpenAICompletionsCompat:
             thinking_format="zai",
         )
 
-    return OpenAICompletionsCompat()
+    return OpenAICompletionsCompat(
+        supports_developer_role=supports_developer_role(provider, base_url)
+    )
 
 
 class OpenAICompletionsProvider(BaseProvider):

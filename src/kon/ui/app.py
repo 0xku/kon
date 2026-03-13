@@ -256,6 +256,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             model=self._model,
             max_tokens=get_max_tokens(self._model),
             thinking_level=self._thinking_level,
+            provider=self._model_provider,
         )
 
         provider_error: str | None = None

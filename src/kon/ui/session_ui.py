@@ -188,6 +188,7 @@ class SessionUIMixin:
                         model=model_id,
                         max_tokens=get_max_tokens(model_id),
                         thinking_level=self._thinking_level,
+                        provider=provider,
                     )
                     try:
                         self._provider = self._create_provider(restored_model.api, provider_config)
