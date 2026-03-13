@@ -189,8 +189,18 @@ class OpenAIResponsesProvider(BaseProvider):
                     response = getattr(event, "response", None)
                     if response and response.usage:
                         cached = 0
+                        cache_write = getattr(response.usage, "cache_write_tokens", 0) or 0
                         if response.usage.input_tokens_details:
                             cached = response.usage.input_tokens_details.cached_tokens or 0
+                            cache_write = (
+                                getattr(
+                                    response.usage.input_tokens_details, "cache_write_tokens", 0
+                                )
+                                or getattr(
+                                    response.usage.input_tokens_details, "cache_creation_tokens", 0
+                                )
+                                or cache_write
+                            )
                         input_tokens = response.usage.input_tokens or 0
                         non_cached_input = max(input_tokens - cached, 0)
 
@@ -198,6 +208,7 @@ class OpenAIResponsesProvider(BaseProvider):
                             input_tokens=non_cached_input,
                             output_tokens=response.usage.output_tokens or 0,
                             cache_read_tokens=cached,
+                            cache_write_tokens=cache_write,
                         )
 
                     if response and response.id:

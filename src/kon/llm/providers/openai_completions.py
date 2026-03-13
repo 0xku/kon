@@ -162,13 +162,21 @@ class OpenAICompletionsProvider(BaseProvider):
         try:
             async for chunk in response:
                 if chunk.usage:
-                    cached = getattr(chunk.usage.prompt_tokens_details, "cached_tokens", 0) or 0
+                    prompt_details = getattr(chunk.usage, "prompt_tokens_details", None)
+                    cached = getattr(prompt_details, "cached_tokens", 0) or 0
+                    cache_write = (
+                        getattr(prompt_details, "cache_write_tokens", 0)
+                        or getattr(prompt_details, "cache_creation_tokens", 0)
+                        or getattr(chunk.usage, "cache_write_tokens", 0)
+                        or 0
+                    )
                     prompt_tokens = chunk.usage.prompt_tokens or 0
                     non_cached_input = max(prompt_tokens - cached, 0)
                     llm_stream._usage = Usage(
                         input_tokens=non_cached_input,
                         output_tokens=chunk.usage.completion_tokens or 0,
                         cache_read_tokens=cached,
+                        cache_write_tokens=cache_write,
                     )
 
                 if chunk.id:
