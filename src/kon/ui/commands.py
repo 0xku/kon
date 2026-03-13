@@ -257,13 +257,14 @@ Keybindings:
 
         chat.add_session_info(getattr(self, "VERSION", ""))
 
-        self._agent.reload_context()
-        self._agent.session = self._session
-        # TODO: Surface self._agent.context.skill_warnings in UI
-        chat.add_loaded_resources(
-            context_paths=[format_path(f.path) for f in self._agent.context.agents_files],
-            skill_paths=[format_path(s.path) for s in self._agent.context.skills],
-        )
+        if self._agent is not None:
+            self._agent.reload_context()
+            self._agent.session = self._session
+            # TODO: Surface self._agent.context.skill_warnings in UI
+            chat.add_loaded_resources(
+                context_paths=[format_path(f.path) for f in self._agent.context.agents_files],
+                skill_paths=[format_path(s.path) for s in self._agent.context.skills],
+            )
 
         chat.add_info_message("Started new conversation")
 
