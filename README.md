@@ -256,6 +256,9 @@ kon --model zai-org/glm-4.7-flash \
 
 Config lives at `~/.kon/config.toml` (auto-created on first run).
 
+Kon also runs automatic config migrations on startup for older schemas. When a migration is applied,
+the previous file is backed up to `~/.kon/config.toml.bak.<timestamp>`.
+
 Most important knobs:
 
 - `llm.default_provider`

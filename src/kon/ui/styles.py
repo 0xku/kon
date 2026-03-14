@@ -181,7 +181,7 @@ Screen {{
     height: 1;
 }}
 
-#info-cwd, #info-row2-left {{
+#info-cwd {{
     width: 1fr;
     padding: 0 1;
 }}

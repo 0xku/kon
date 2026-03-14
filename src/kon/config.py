@@ -1,8 +1,12 @@
+import contextlib
+import os
 import shutil
 import sys
+import tempfile
 import tomllib
 from contextvars import ContextVar
 from copy import deepcopy
+from datetime import datetime
 from importlib import resources
 from pathlib import Path
 from typing import Any, Literal
@@ -19,9 +23,14 @@ def _load_default_config_text() -> str:
 
 
 _DEFAULT_CONFIG_DATA = tomllib.loads(_load_default_config_text())
+CURRENT_CONFIG_VERSION = int(_DEFAULT_CONFIG_DATA.get("meta", {}).get("config_version", 1))
 
 _config_var: ContextVar["Config | None"] = ContextVar("kon_config", default=None)
 _config_warnings: list[str] = []
+
+
+class MetaConfig(BaseModel):
+    config_version: int = CURRENT_CONFIG_VERSION
 
 
 class ToolBgConfig(BaseModel):
@@ -37,6 +46,7 @@ class BadgeColorConfig(BaseModel):
 
 class ColorsConfig(BaseModel):
     dim: str
+    muted: str
     title: str
     spinner: str
     accent: str
@@ -75,6 +85,7 @@ class AgentConfig(BaseModel):
 
 
 class ConfigSchema(BaseModel):
+    meta: MetaConfig
     llm: LLMConfig
     ui: UIConfig
     compaction: CompactionConfig
@@ -118,7 +129,7 @@ class Config:
         return merged
 
     @staticmethod
-    def merge_with_defaults(data: dict[str, Any]) -> dict[str, Any]:
+    def _apply_legacy_key_shims(data: dict[str, Any]) -> dict[str, Any]:
         normalized_data = deepcopy(data)
         ui_colors = normalized_data.get("ui", {}).get("colors")
         if isinstance(ui_colors, dict):
@@ -126,6 +137,11 @@ class Config:
                 ui_colors["badge"] = deepcopy(ui_colors["compaction"])
             if "notice" not in ui_colors and isinstance(ui_colors.get("warning"), str):
                 ui_colors["notice"] = ui_colors["warning"]
+        return normalized_data
+
+    @staticmethod
+    def merge_with_defaults(data: dict[str, Any]) -> dict[str, Any]:
+        normalized_data = Config._apply_legacy_key_shims(data)
         return Config.deep_merge(_DEFAULT_CONFIG_DATA, normalized_data)
 
     @property
@@ -187,6 +203,115 @@ def _detect_available_binaries() -> set[str]:
     return available
 
 
+def _get_config_version(data: dict[str, Any]) -> int:
+    meta = data.get("meta")
+    if not isinstance(meta, dict):
+        return 0
+    version = meta.get("config_version")
+    if isinstance(version, int) and version >= 0:
+        return version
+    return 0
+
+
+def _migrate_v0_to_v1(data: dict[str, Any]) -> dict[str, Any]:
+    migrated = Config._apply_legacy_key_shims(data)
+    meta = migrated.get("meta")
+    if not isinstance(meta, dict):
+        migrated["meta"] = {"config_version": 1}
+    else:
+        meta["config_version"] = 1
+    return migrated
+
+
+def _migrate_config_data(data: dict[str, Any]) -> tuple[dict[str, Any], int, int, bool]:
+    original = deepcopy(data)
+    current_version = _get_config_version(original)
+    migrated = deepcopy(original)
+
+    while current_version < CURRENT_CONFIG_VERSION:
+        if current_version == 0:
+            migrated = _migrate_v0_to_v1(migrated)
+            current_version = 1
+            continue
+        break
+
+    migrated_version = _get_config_version(migrated)
+    did_migrate = migrated != original
+    return migrated, _get_config_version(original), migrated_version, did_migrate
+
+
+def _toml_escape_string(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    return f'"{escaped}"'
+
+
+def _toml_format_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(value)
+    if isinstance(value, str):
+        return _toml_escape_string(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_format_value(item) for item in value) + "]"
+    raise TypeError(
+        f"Unsupported config value type for TOML serialization: {type(value).__name__}"
+    )
+
+
+def _toml_dump_dict(data: dict[str, Any], table: str | None = None) -> str:
+    lines: list[str] = []
+
+    scalar_items = [(k, v) for k, v in data.items() if not isinstance(v, dict)]
+    dict_items = [(k, v) for k, v in data.items() if isinstance(v, dict)]
+
+    if table is not None:
+        lines.append(f"[{table}]")
+
+    for key, value in scalar_items:
+        lines.append(f"{key} = {_toml_format_value(value)}")
+
+    if dict_items and lines:
+        lines.append("")
+
+    for idx, (key, value) in enumerate(dict_items):
+        nested_table = f"{table}.{key}" if table else key
+        nested = _toml_dump_dict(value, nested_table)
+        if nested:
+            lines.append(nested)
+        if idx < len(dict_items) - 1:
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+def _serialize_config_toml(data: dict[str, Any]) -> str:
+    return _toml_dump_dict(data) + "\n"
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    fd, tmp_name = tempfile.mkstemp(prefix=f"{path.name}.", suffix=".tmp", dir=path.parent)
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.replace(tmp_path, path)
+    except Exception:
+        with contextlib.suppress(FileNotFoundError):
+            tmp_path.unlink()
+        raise
+
+
+def _backup_and_write_migrated_config(config_file: Path, data: dict[str, Any]) -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    backup_path = config_file.with_name(f"{config_file.name}.bak.{timestamp}")
+    shutil.copy2(config_file, backup_path)
+    _atomic_write_text(config_file, _serialize_config_toml(data))
+    return backup_path
+
+
 AVAILABLE_BINARIES = _detect_available_binaries()
 
 
@@ -207,7 +332,20 @@ def _load_config() -> Config:
         data = {}
 
     try:
-        return Config(data)
+        migrated_data, from_version, to_version, did_migrate = _migrate_config_data(data)
+        if did_migrate and data:
+            try:
+                backup = _backup_and_write_migrated_config(config_file, migrated_data)
+                _record_config_warning(
+                    f"Migrated config at {config_file} from v{from_version} to v{to_version}. "
+                    f"Backup saved to {backup}."
+                )
+            except Exception as exc:
+                _record_config_warning(
+                    f"Failed to persist migrated config at {config_file}: {exc}. "
+                    "Continuing with in-memory migrated config."
+                )
+        return Config(migrated_data)
     except ValidationError as exc:
         _record_config_warning(
             f"Invalid config values at {config_file}: {exc}. Falling back to built-in defaults."

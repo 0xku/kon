@@ -1,3 +1,6 @@
+[meta]
+config_version = 1
+
 [llm]
 default_provider = "openai-codex" # "zhipu", "github-copilot", "openai-codex"
 default_model = "gpt-5.4"
@@ -29,7 +32,8 @@ max_turns = 500
 default_context_window = 200000
 
 [ui.colors]
-dim = "#888888"
+dim = "#666666"
+muted = "#808080"
 title = "#d97706"
 spinner = "#d97706"
 accent = "#8ABEB7"

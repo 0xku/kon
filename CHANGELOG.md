@@ -4,7 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-- No changes yet.
+### Added
+
+- Added automatic user config migration with schema versioning and backup creation (`~/.kon/config.toml.bak.<timestamp>`).
+- Added migration tests for legacy config key upgrades and no-op behavior on current schema versions.
+- Added provider error-format tests to ensure empty upstream exceptions render with readable fallback text.
+
+### Fixed
+
+- Fixed blank error notifications (`✗` with no message) by normalizing empty provider/UI error messages.
 
 ## 0.2.6 - 2026-03-14
 

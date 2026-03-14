@@ -90,7 +90,29 @@ class ChatLog(VerticalScroll):
 
     def add_session_info(self, version: str) -> None:
         info_text = Text()
-        info_text.append(f"kon v{version}", style=f"{config.ui.colors.accent} bold")
+        accent = config.ui.colors.accent
+        dim = config.ui.colors.dim
+        muted = config.ui.colors.muted
+
+        info_text.append("kon", style=f"{accent} bold")
+        info_text.append(f" v{version}\n", style=dim)
+
+        def append_hint(key: str, description: str, trailing_newline: bool = True) -> None:
+            info_text.append(key, style=dim)
+            info_text.append(f" {description}", style=muted)
+            if trailing_newline:
+                info_text.append("\n", style=muted)
+
+        append_hint("escape", "to interrupt")
+        append_hint("ctrl+c", "to clear input")
+        append_hint("ctrl+c twice", "to exit")
+        append_hint("ctrl+t", "to show or hide thinking")
+        append_hint("shift+tab", "to cycle thinking level")
+        append_hint("/", "for commands")
+        append_hint("@", "to search files inline")
+        append_hint("tab", "to complete paths")
+        append_hint("up and down", "for prompt history")
+        append_hint("shift+enter", "for newline", trailing_newline=False)
 
         info_label = Label(info_text)
         info_label.add_class("session-info")
@@ -235,6 +257,12 @@ class ChatLog(VerticalScroll):
         error_color = config.ui.colors.error
         notice_color = config.ui.colors.notice
 
+        cleaned_message = message.strip()
+        if not cleaned_message:
+            cleaned_message = (
+                "Unknown error (no details provided)." if error else "No details provided."
+            )
+
         style = info_color
         prefix = "✓ "
         if warning:
@@ -244,7 +272,7 @@ class ChatLog(VerticalScroll):
             style = error_color
             prefix = "✗ "
 
-        text = Text(f"{prefix}{message}", style=style)
+        text = Text(f"{prefix}{cleaned_message}", style=style)
         label = Label(text)
         label.add_class("info-message")
         self.mount(label)

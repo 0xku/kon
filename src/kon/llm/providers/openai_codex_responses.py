@@ -25,6 +25,13 @@ _MAX_RETRIES = 3
 _BASE_DELAY_MS = 1000
 
 
+def _format_provider_error(error: Exception) -> str:
+    message = str(error).strip()
+    if message:
+        return message
+    return f"{error.__class__.__name__}: request failed without an error message"
+
+
 def _is_retryable_status(status: int) -> bool:
     return status in (429, 500, 502, 503, 504)
 
@@ -281,7 +288,7 @@ class OpenAICodexResponsesProvider(BaseProvider):
             finally:
                 await session.close()
         except Exception as e:
-            yield StreamError(error=str(e))
+            yield StreamError(error=_format_provider_error(e))
 
     async def _parse_sse(self, response: aiohttp.ClientResponse) -> AsyncIterator[dict[str, Any]]:
         buffer = ""

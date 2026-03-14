@@ -69,7 +69,6 @@ class InfoBar(Vertical):
             yield Label(self._format_row1_left(), id="info-cwd")
             yield Label(self._format_row1_right(), id="info-row1-right")
         with Horizontal(id="info-row-2"):
-            yield Label(self._format_row2_left(), id="info-row2-left")
             yield Label(self._format_row2_right(), id="info-row2-right")
 
     def _format_row1_left(self) -> Text:
@@ -105,16 +104,6 @@ class InfoBar(Vertical):
                 result.append(" • ")
             result.append_text(part)
 
-        return result
-
-    def _format_row2_left(self) -> Text:
-        dim_color = config.ui.colors.dim
-        result = Text()
-        result.append("^C clear | ", style=dim_color)
-        result.append("^Cx2 exit | ", style=dim_color)
-        thinking_action = "show" if self._hide_thinking else "hide"
-        result.append(f"^T {thinking_action} thinking | ", style=dim_color)
-        result.append("⇧⇥ cycle thinking", style=dim_color)
         return result
 
     def _format_row2_right(self) -> Text:
@@ -166,7 +155,6 @@ class InfoBar(Vertical):
 
     def set_thinking_visibility(self, hide_thinking: bool) -> None:
         self._hide_thinking = hide_thinking
-        self.query_one("#info-row2-left", Label).update(self._format_row2_left())
 
     def set_session_id(self, session_id: str) -> None:
         pass
