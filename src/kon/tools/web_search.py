@@ -11,7 +11,7 @@ from .base import BaseTool
 class WebSearchParams(BaseModel):
     query: str = Field(description="Search query")
     max_results: int = Field(
-        description="Number of results to return (default 3)", default=3, ge=1, le=10
+        description="Number of results to return (default 10)", default=10, ge=1, le=10
     )
 
 
