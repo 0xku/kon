@@ -38,6 +38,13 @@ class Kon(TextArea):
         super().__init__(**kwargs)
         self._on_paste_transform = on_paste
 
+    async def _on_key(self, event: events.Key) -> None:
+        future = getattr(self.app, "_approval_future", None)
+        if future and not future.done() and event.key in ("y", "Y", "n", "N"):
+            self.app.on_key(event)
+            return
+        await super()._on_key(event)
+
     async def _on_paste(self, event: events.Paste) -> None:
         # Prevent TextArea._on_paste from also running on the original event.
         event.prevent_default()
