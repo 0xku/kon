@@ -86,7 +86,7 @@ _CHANGELOG_URL = "https://github.com/0xku/kon/blob/main/CHANGELOG.md"
 try:
     VERSION = version(_PYPI_PACKAGE_NAME)
 except PackageNotFoundError:
-    VERSION = "0.2.6"
+    VERSION = "0.2.7"
 
 _COPILOT_API_TYPES: frozenset[ApiType] = frozenset(
     {ApiType.GITHUB_COPILOT, ApiType.GITHUB_COPILOT_RESPONSES, ApiType.ANTHROPIC_COPILOT}
