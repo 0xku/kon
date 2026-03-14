@@ -1,4 +1,3 @@
-- bug in how we report context size, tokens in and out and cached tokens for codex?
 - steer (immediate) and normal queues
 - easily attach previous chats as truncated context?
 - amp inspired /handoff <instructions>, like branching in pi?
