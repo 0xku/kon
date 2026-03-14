@@ -1,6 +1,11 @@
 import pytest
 
-from kon import reset_config
+from kon import get_config, reset_config
+
+
+def pytest_runtest_setup(item):
+    # Auto-approve so existing tests aren't blocked by permission prompts
+    get_config()._parsed.permissions.mode = "auto"
 
 
 class FakeChat:

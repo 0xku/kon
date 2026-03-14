@@ -340,6 +340,7 @@ class StatusLine(Horizontal):
         self._start_time: float | None = None
         self._tool_calls = 0
         self._show_exit_hint = False
+        self._showing_approval = False
         self._streaming_token_count = 0
         self.add_class("status-line")
 
@@ -379,7 +380,7 @@ class StatusLine(Horizontal):
         return result
 
     def _update_spinner(self) -> None:
-        if self._status != "idle":
+        if self._status != "idle" and not self._showing_approval:
             self.query_one("#status-text", Label).update(self._render_spinner())
 
     def set_status(self, status: str) -> None:
@@ -387,6 +388,7 @@ class StatusLine(Horizontal):
         self._status = status
 
         if status == "idle":
+            self._showing_approval = False
             self._streaming_token_count = 0
             if old_status != "idle" and self._start_time is not None:
                 self.query_one("#status-text", Label).update(self._format_complete_status())
@@ -420,6 +422,22 @@ class StatusLine(Horizontal):
     def hide_exit_hint(self) -> None:
         self._show_exit_hint = False
         self.query_one("#exit-hint", Label).update("")
+
+    def show_approval_prompt(self, tool_name: str) -> None:
+        self._showing_approval = True
+        accent = config.ui.colors.accent
+        dim = config.ui.colors.dim
+        text = Text()
+        text.append(f" Approve {tool_name}? ", style=dim)
+        text.append("[y]", style=f"{accent} bold")
+        text.append(" approve  ", style=dim)
+        text.append("[n]", style=f"{accent} bold")
+        text.append(" deny", style=dim)
+        self.query_one("#status-text", Label).update(text)
+
+    def hide_approval_prompt(self) -> None:
+        self._showing_approval = False
+        self.query_one("#status-text", Label).update(self._render_spinner())
 
     def reset(self) -> None:
         self._start_time = None
