@@ -4,7 +4,8 @@ from typing import Literal
 from rich.style import Style
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.widgets import Label, Static
+from textual.message import Message
+from textual.widgets import Label, Markdown, Static
 
 from kon import config
 
@@ -230,6 +231,59 @@ class UserBlock(Static):
             text.append(self._content)
 
         yield Label(text)
+
+
+class HandoffLinkBlock(Static):
+    ALLOW_SELECT = True
+    can_focus = False
+
+    def __init__(
+        self,
+        label: str,
+        target_session_id: str,
+        query: str,
+        direction: Literal["back", "forward"],
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._label = label
+        self._target_session_id = target_session_id
+        self._query = query
+        self._direction: Literal["back", "forward"] = direction
+        self.add_class("handoff-link-block")
+
+    def compose(self) -> ComposeResult:
+        markdown_text = (
+            f"**[handoff]** {self._label}\n"
+            f"[Open linked session](kon-session://{self._target_session_id})\n"
+            f"Query: {self._query}"
+        )
+        markdown = Markdown(markdown_text, open_links=False)
+        markdown.add_class("handoff-link-content")
+        yield markdown
+
+    def on_markdown_link_clicked(self, event: Markdown.LinkClicked) -> None:
+        event.stop()
+        if not event.href.startswith("kon-session://"):
+            return
+        target_session_id = event.href[len("kon-session://") :].strip()
+        if not target_session_id:
+            return
+        self.post_message(self.LinkSelected(self, target_session_id, self._query, self._direction))
+
+    class LinkSelected(Message):
+        def __init__(
+            self,
+            block: "HandoffLinkBlock",
+            target_session_id: str,
+            query: str,
+            direction: Literal["back", "forward"],
+        ) -> None:
+            super().__init__()
+            self.block = block
+            self.target_session_id = target_session_id
+            self.query = query
+            self.direction = direction
 
 
 class UpdateAvailableBlock(Static):

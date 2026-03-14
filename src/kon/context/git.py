@@ -50,14 +50,15 @@ def format_git_context_for_prompt(cwd: str) -> str:
     max_chars = 10000
     if len(content) > max_chars:
         content = (
-            content[:max_chars]
-            + '\n\n... (truncated because it exceeds 10k characters. If you need more information, run "git status" using bash)'
+            content[:max_chars] + "\n\n... (truncated because it exceeds 10k characters. "
+            'If you need more information, run "git status" using bash)'
         )
 
     return (
         "# Git Context\n\n"
         "This is the git status at the start of the conversation. "
-        "Note that this status is a snapshot in time, and will not update during the conversation.\n"
+        "Note that this status is a snapshot in time, and will not update "
+        "during the conversation.\n"
         "<git-status>\n"
         f"{content}\n"
         "</git-status>"

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from rich.text import Text
 from textual.containers import VerticalScroll
 from textual.widgets import Label
@@ -6,6 +8,7 @@ from kon import config
 
 from .blocks import (
     ContentBlock,
+    HandoffLinkBlock,
     LaunchWarning,
     LaunchWarningsBlock,
     ThinkingBlock,
@@ -162,6 +165,17 @@ class ChatLog(VerticalScroll):
 
     def add_user_message(self, content: str, highlighted_skill: str | None = None) -> UserBlock:
         block = UserBlock(content, highlighted_skill=highlighted_skill)
+        self.mount(block)
+        self._scroll_if_anchored(animate=False)
+        self._prune_if_needed()
+        return block
+
+    def add_handoff_link_message(
+        self, label: str, target_session_id: str, query: str, direction: Literal["back", "forward"]
+    ) -> HandoffLinkBlock:
+        block = HandoffLinkBlock(
+            label=label, target_session_id=target_session_id, query=query, direction=direction
+        )
         self.mount(block)
         self._scroll_if_anchored(animate=False)
         self._prune_if_needed()
