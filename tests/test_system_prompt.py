@@ -22,3 +22,27 @@ def test_system_prompt_includes_guidelines():
 def test_system_prompt_includes_cwd():
     prompt = build_system_prompt("/test/dir", Context("/test/dir"))
     assert "/test/dir" in prompt
+
+
+def test_system_prompt_excludes_git_context_by_default():
+    set_config(Config({}))
+    try:
+        prompt = build_system_prompt("/tmp", Context("/tmp"))
+    finally:
+        reset_config()
+
+    assert "<git-status>" not in prompt
+
+
+def test_system_prompt_includes_git_context_when_enabled(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    set_config(Config({"llm": {"system_prompt": {"git_context": True}}}))
+    try:
+        prompt = build_system_prompt(str(repo), Context(str(repo)))
+    finally:
+        reset_config()
+
+    # Non-git directory should still omit the section
+    assert "<git-status>" not in prompt

@@ -1,5 +1,5 @@
 [meta]
-config_version = 1
+config_version = 2
 
 [llm]
 default_provider = "openai-codex" # "zhipu", "github-copilot", "openai-codex"
@@ -7,7 +7,10 @@ default_model = "gpt-5.4"
 default_base_url = ""
 default_thinking_level = "high"
 tool_call_idle_timeout_seconds = 120
-system_prompt = """You are an expert coding assistant called `Kon`.
+
+[llm.system_prompt]
+git_context = false
+content = """You are an expert coding assistant called `Kon`.
 You help users by reading, searching, executing commands, editing code, and writing new files.
 
 ## Tool usage

@@ -65,12 +65,17 @@ class UIConfig(BaseModel):
     colors: ColorsConfig
 
 
+class SystemPromptConfig(BaseModel):
+    content: str
+    git_context: bool = False
+
+
 class LLMConfig(BaseModel):
     default_provider: str
     default_model: str
     default_base_url: str = ""
     default_thinking_level: str
-    system_prompt: str
+    system_prompt: SystemPromptConfig
     tool_call_idle_timeout_seconds: float = 60
 
 
@@ -131,12 +136,28 @@ class Config:
     @staticmethod
     def _apply_legacy_key_shims(data: dict[str, Any]) -> dict[str, Any]:
         normalized_data = deepcopy(data)
+
         ui_colors = normalized_data.get("ui", {}).get("colors")
         if isinstance(ui_colors, dict):
             if "badge" not in ui_colors and isinstance(ui_colors.get("compaction"), dict):
                 ui_colors["badge"] = deepcopy(ui_colors["compaction"])
             if "notice" not in ui_colors and isinstance(ui_colors.get("warning"), str):
                 ui_colors["notice"] = ui_colors["warning"]
+
+        llm = normalized_data.get("llm")
+        if isinstance(llm, dict):
+            legacy_prompt = llm.get("system_prompt")
+            if isinstance(legacy_prompt, str):
+                llm["system_prompt"] = {"content": legacy_prompt}
+
+            legacy_git_context = llm.pop("system_prompt_git_context", None)
+            if isinstance(legacy_git_context, bool):
+                system_prompt = llm.get("system_prompt")
+                if not isinstance(system_prompt, dict):
+                    system_prompt = {}
+                    llm["system_prompt"] = system_prompt
+                system_prompt.setdefault("git_context", legacy_git_context)
+
         return normalized_data
 
     @staticmethod
@@ -223,6 +244,16 @@ def _migrate_v0_to_v1(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v1_to_v2(data: dict[str, Any]) -> dict[str, Any]:
+    migrated = Config._apply_legacy_key_shims(data)
+    meta = migrated.get("meta")
+    if not isinstance(meta, dict):
+        migrated["meta"] = {"config_version": 2}
+    else:
+        meta["config_version"] = 2
+    return migrated
+
+
 def _migrate_config_data(data: dict[str, Any]) -> tuple[dict[str, Any], int, int, bool]:
     original = deepcopy(data)
     current_version = _get_config_version(original)
@@ -232,6 +263,10 @@ def _migrate_config_data(data: dict[str, Any]) -> tuple[dict[str, Any], int, int
         if current_version == 0:
             migrated = _migrate_v0_to_v1(migrated)
             current_version = 1
+            continue
+        if current_version == 1:
+            migrated = _migrate_v1_to_v2(migrated)
+            current_version = 2
             continue
         break
 
