@@ -1,7 +1,9 @@
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from .core.types import AssistantMessage, StopReason, ToolResultMessage, Usage
+from .permissions import ApprovalResponse
 
 # =================================================================================================
 # Agent Lifecycle Events
@@ -125,6 +127,14 @@ class ToolResultEvent:
     result: ToolResultMessage | None = None
 
 
+@dataclass
+class ToolApprovalEvent:
+    type: Literal["tool_approval"] = "tool_approval"
+    tool_call_id: str = ""
+    tool_name: str = ""
+    future: asyncio.Future[ApprovalResponse] | None = None
+
+
 # =================================================================================================
 # Compaction Events
 # =================================================================================================
@@ -191,6 +201,7 @@ StreamEvent = (
     | ToolArgsTokenUpdateEvent
     | ToolEndEvent
     | ToolResultEvent
+    | ToolApprovalEvent
     | RetryEvent
     | TurnEndEvent
     | ErrorEvent

@@ -25,6 +25,7 @@ class FindParams(BaseModel):
 class FindTool(BaseTool):
     name = "find"
     params = FindParams
+    mutating = False
     description = (
         "Search for files by glob pattern using fd. "
         "Returns matching file paths relative to the search directory, "

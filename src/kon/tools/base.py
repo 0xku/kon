@@ -10,6 +10,7 @@ class BaseTool[T: BaseModel](ABC):
     name: str
     params: type[T]
     description: str
+    mutating: bool = True
 
     @abstractmethod
     async def execute(
