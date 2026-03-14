@@ -325,6 +325,8 @@ class InputBox(Vertical):
             return
 
         app = self.app
+        if getattr(app, "deny_pending_approval", lambda: False)():
+            return
         if getattr(app, "_is_running", False):
             app.action_interrupt_agent()  # type: ignore
         else:
