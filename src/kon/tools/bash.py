@@ -10,6 +10,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from kon import config
+
 from ..config import AVAILABLE_BINARIES
 from ..core.types import ToolResult
 from .base import BaseTool
@@ -163,21 +165,34 @@ class BashTool(BaseTool):
     def format_call(self, params: BashParams) -> str:
         return params.command
 
-    def _format_display(self, output: str, max_lines: int = 5) -> str:
+    def _format_display(self, output: str, max_lines: int = 5, max_line_chars: int = 500) -> str:
+        truncation_color = config.ui.colors.dim
+
         if not output:
-            return "[dim](no output)[/dim]"
+            return f"[{truncation_color}](no output)[/{truncation_color}]"
 
         lines = output.split("\n")
-        if len(lines) > max_lines:
-            display_lines = lines[:max_lines]
-            display_lines.append(f"... ({len(lines) - max_lines} more lines)")
-        else:
-            display_lines = lines
+        hidden_lines = max(0, len(lines) - max_lines)
+        display_lines = lines[:max_lines]
 
-        formatted = []
+        formatted: list[str] = []
         for line in display_lines:
-            escaped = line.replace("[", "\\[")
-            formatted.append(f"[dim]{escaped}[/dim]")
+            # Truncate long lines for UI display only
+            if len(line) > max_line_chars:
+                visible = line[:max_line_chars].replace("[", "\\[")
+                hidden_chars = len(line) - max_line_chars
+                formatted.append(
+                    f"[dim]{visible}[/dim]"
+                    f"[{truncation_color}]... ({hidden_chars} more chars)[/{truncation_color}]"
+                )
+            else:
+                escaped = line.replace("[", "\\[")
+                formatted.append(f"[dim]{escaped}[/dim]")
+
+        if hidden_lines > 0:
+            formatted.append(
+                f"[{truncation_color}]... ({hidden_lines} more lines)[/{truncation_color}]"
+            )
 
         return "\n".join(formatted)
 

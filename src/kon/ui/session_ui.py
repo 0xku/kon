@@ -74,7 +74,7 @@ class SessionUIMixin:
         if len(lines) > max_lines:
             hidden = len(lines) - max_lines
             lines = lines[:max_lines]
-            lines.append(f"... ({hidden} lines hidden)")
+            lines.append(f"... ({hidden} more lines)")
 
         return "\n".join(lines)
 
