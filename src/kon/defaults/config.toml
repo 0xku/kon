@@ -57,3 +57,6 @@ error = "#3c2828"
 [ui.colors.badge]
 bg = "#2d2838"
 label = "#9575cd"
+
+[permissions]
+mode = "prompt"   # "prompt" or "auto"

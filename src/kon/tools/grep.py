@@ -29,6 +29,7 @@ class GrepParams(BaseModel):
 class GrepTool(BaseTool):
     name = "grep"
     params = GrepParams
+    mutating = False
     description = (
         "Search file contents using ripgrep. "
         "Returns matching lines with file paths and line numbers, sorted by modification time. "
