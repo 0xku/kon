@@ -17,6 +17,7 @@ class WebSearchParams(BaseModel):
 
 class WebSearchTool(BaseTool):
     name = "web_search"
+    mutating = False
     params = WebSearchParams
     description = (
         "Search the web using DuckDuckGo. "

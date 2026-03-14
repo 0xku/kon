@@ -17,6 +17,7 @@ class WebFetchParams(BaseModel):
 
 class WebFetchTool(BaseTool):
     name = "web_fetch"
+    mutating = False
     params = WebFetchParams
     description = (
         "Fetch a web page and extract its main content as clean text. "
