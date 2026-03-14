@@ -47,10 +47,10 @@ def format_git_context_for_prompt(cwd: str) -> str:
         return ""
 
     content = "\n\n".join(sections)
-    max_chars = 10000
+    max_chars = 2000
     if len(content) > max_chars:
         content = (
-            content[:max_chars] + "\n\n... (truncated because it exceeds 10k characters. "
+            content[:max_chars] + "\n\n... (truncated because it exceeds 2k characters. "
             'If you need more information, run "git status" using bash)'
         )
 
