@@ -245,8 +245,10 @@ class InfoBar(Vertical):
         self._output_tokens += output_tokens
         self._cache_read_tokens += cache_read_tokens
         self._cache_write_tokens += cache_write_tokens
-        # Context size is latest turn input+output, with cache reads included.
-        self._context_tokens = input_tokens + output_tokens + cache_read_tokens
+        # Context size is latest turn's full token footprint.
+        self._context_tokens = (
+            input_tokens + output_tokens + cache_read_tokens + cache_write_tokens
+        )
         self.query_one("#info-row1-right", Label).update(self._format_row1_right())
 
     def set_tokens(

@@ -172,7 +172,10 @@ class SessionUIMixin:
                     cache_read_tokens += usage.cache_read_tokens
                     cache_write_tokens += usage.cache_write_tokens
                     context_tokens = (
-                        usage.input_tokens + usage.output_tokens + usage.cache_read_tokens
+                        usage.input_tokens
+                        + usage.output_tokens
+                        + usage.cache_read_tokens
+                        + usage.cache_write_tokens
                     )
 
         return input_tokens, output_tokens, context_tokens, cache_read_tokens, cache_write_tokens
