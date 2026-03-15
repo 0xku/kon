@@ -158,6 +158,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self._abort_shown = False
         self._current_block_type: str | None = None
         self._approval_future: asyncio.Future[ApprovalResponse] | None = None
+        self._approval_tool_id: str | None = None
         self._hide_thinking = False
         self._fd_path: str | None = None
         self._selection_mode: SelectionMode | None = None
@@ -691,8 +692,10 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         if self._approval_future and not self._approval_future.done():
             self._approval_future.set_result(ApprovalResponse.DENY)
             self._approval_future = None
-            status = self.query_one("#status-line", StatusLine)
-            status.hide_approval_prompt()
+            if self._approval_tool_id is not None:
+                chat = self.query_one("#chat-log", ChatLog)
+                chat.hide_tool_approval(self._approval_tool_id)
+                self._approval_tool_id = None
             return True
         return False
 
@@ -708,8 +711,10 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         event.prevent_default()
         event.stop()
         self._approval_future = None
-        status = self.query_one("#status-line", StatusLine)
-        status.hide_approval_prompt()
+        if self._approval_tool_id is not None:
+            chat = self.query_one("#chat-log", ChatLog)
+            chat.hide_tool_approval(self._approval_tool_id)
+            self._approval_tool_id = None
 
     @on(InputBox.Submitted)
     def on_input_submitted(self, event: InputBox.Submitted) -> None:
@@ -853,11 +858,13 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                             chat.update_tool_call_msg(id, display)
 
                         case ToolApprovalEvent(tool_call_id=id, tool_name=name, future=f):
-                            status.show_approval_prompt(name)
+                            chat.show_tool_approval(id)
                             self._approval_future = f
+                            self._approval_tool_id = id
 
                         case ToolResultEvent(tool_call_id=id, result=r, file_changes=fc):
                             self._approval_future = None
+                            self._approval_tool_id = None
                             if r:
                                 if r.display:
                                     text = r.display
@@ -928,6 +935,9 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             self._interrupt_requested = False
             self._cancel_event = None
             self._approval_future = None
+            if self._approval_tool_id is not None:
+                chat.hide_tool_approval(self._approval_tool_id)
+            self._approval_tool_id = None
             status.set_status("idle")
 
             if was_interrupted:
