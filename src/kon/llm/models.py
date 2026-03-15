@@ -17,6 +17,7 @@ class ApiType(Enum):
     OPENAI_RESPONSES = "openai-responses"
     OPENAI_CODEX_RESPONSES = "openai-codex-responses"
     ANTHROPIC_COPILOT = "anthropic-copilot"
+    AZURE_AI_FOUNDRY = "azure-ai-foundry"
     GITHUB_COPILOT = "github-copilot"
     GITHUB_COPILOT_RESPONSES = "github-copilot-responses"
 
@@ -57,24 +58,6 @@ MODELS: dict[str, Model] = {
         vision_model="glm-4v-flash",
     ),
     # GitHub Copilot models - Claude (uses Anthropic Messages API for thinking support)
-    "claude-sonnet-4.5-copilot": Model(
-        id="claude-sonnet-4.5",
-        provider="github-copilot",
-        api=ApiType.ANTHROPIC_COPILOT,
-        base_url="https://api.individual.githubcopilot.com",
-        max_tokens=8192 * 2,
-        supports_images=True,
-        supports_thinking=True,
-    ),
-    "claude-opus-4.5-copilot": Model(
-        id="claude-opus-4.5",
-        provider="github-copilot",
-        api=ApiType.ANTHROPIC_COPILOT,
-        base_url="https://api.individual.githubcopilot.com",
-        max_tokens=8192 * 2,
-        supports_images=True,
-        supports_thinking=True,
-    ),
     "claude-sonnet-4.6-copilot": Model(
         id="claude-sonnet-4.6",
         provider="github-copilot",
@@ -127,6 +110,25 @@ MODELS: dict[str, Model] = {
         provider="openai-codex",
         api=ApiType.OPENAI_CODEX_RESPONSES,
         base_url="https://chatgpt.com/backend-api",
+        max_tokens=8192 * 2,
+        supports_images=True,
+        supports_thinking=True,
+    ),
+    # Azure AI Foundry models (Anthropic via Azure)
+    "claude-sonnet-4.6-azure": Model(
+        id="claude-sonnet-4.6",
+        provider="azure-ai-foundry",
+        api=ApiType.AZURE_AI_FOUNDRY,
+        base_url="",  # resolved from AZURE_AI_FOUNDRY_BASE_URL env var
+        max_tokens=8192 * 2,
+        supports_images=True,
+        supports_thinking=True,
+    ),
+    "claude-opus-4.6-azure": Model(
+        id="claude-opus-4.6",
+        provider="azure-ai-foundry",
+        api=ApiType.AZURE_AI_FOUNDRY,
+        base_url="",  # resolved from AZURE_AI_FOUNDRY_BASE_URL env var
         max_tokens=8192 * 2,
         supports_images=True,
         supports_thinking=True,

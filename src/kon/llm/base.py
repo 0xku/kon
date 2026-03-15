@@ -7,7 +7,11 @@ from ..core.types import Message, StreamPart, ToolDefinition, Usage
 
 DEFAULT_THINKING_LEVELS: list[str] = ["none", "low", "medium", "high"]
 
-ENV_API_KEY_MAP: dict[str, str] = {"openai": "OPENAI_API_KEY", "google": "GEMINI_API_KEY"}
+ENV_API_KEY_MAP: dict[str, str] = {
+    "openai": "OPENAI_API_KEY",
+    "google": "GEMINI_API_KEY",
+    "azure-ai-foundry": "AZURE_AI_FOUNDRY_API_KEY",
+}
 
 
 def get_env_api_key(provider: str) -> str | None:

@@ -1,5 +1,6 @@
 from ..base import BaseProvider
 from ..models import ApiType
+from .azure_ai_foundry import AzureAIFoundryProvider
 from .copilot import CopilotProvider, CopilotResponsesProvider, is_copilot_logged_in
 from .copilot_anthropic import CopilotAnthropicProvider
 from .mock import MockProvider
@@ -13,6 +14,7 @@ API_TYPE_TO_PROVIDER_CLASS: dict[ApiType, type[BaseProvider]] = {
     ApiType.OPENAI_RESPONSES: OpenAIResponsesProvider,
     ApiType.OPENAI_CODEX_RESPONSES: OpenAICodexResponsesProvider,
     ApiType.ANTHROPIC_COPILOT: CopilotAnthropicProvider,
+    ApiType.AZURE_AI_FOUNDRY: AzureAIFoundryProvider,
     ApiType.OPENAI_COMPLETIONS: OpenAICompletionsProvider,
 }
 
@@ -22,6 +24,7 @@ PROVIDER_API_BY_NAME: dict[str, ApiType] = {
     "github-copilot": ApiType.GITHUB_COPILOT,
     "openai-responses": ApiType.OPENAI_RESPONSES,
     "openai-codex": ApiType.OPENAI_CODEX_RESPONSES,
+    "azure-ai-foundry": ApiType.AZURE_AI_FOUNDRY,
 }
 
 
@@ -40,6 +43,7 @@ def resolve_provider_api_type(provider: str | None) -> ApiType:
 __all__ = [
     "API_TYPE_TO_PROVIDER_CLASS",
     "PROVIDER_API_BY_NAME",
+    "AzureAIFoundryProvider",
     "CopilotAnthropicProvider",
     "CopilotProvider",
     "CopilotResponsesProvider",
