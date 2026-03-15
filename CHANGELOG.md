@@ -6,6 +6,40 @@ All notable changes to this project will be documented in this file.
 
 - No changes yet.
 
+## 0.3.0 - 2026-03-15
+
+### Added
+
+- Added Azure AI Foundry provider support for Anthropic models.
+- Added configurable Git context controls in the system prompt.
+- Added startup launch warnings for provider/config/skill initialization issues.
+- Added dotted spinner statuses for handoff and auto-compaction.
+- Added resume-list improvements for skill-trigger sessions and session deletion.
+- Added file change tracking from edit/write tools, including InfoBar counters and details modal.
+- Added incremental markdown rendering during streaming with heading color support.
+- Added adaptive thinking support for Claude 4.6 models.
+- Added richer exit summary with KON logo, elapsed duration, and file-change totals.
+
+### Changed
+
+- Improved model picker ordering by provider and model id.
+- Improved status line token display to show raw streaming token counts.
+- Improved handoff marker/link rendering for cleaner output.
+- Updated README intro/config guidance and model/provider documentation.
+
+### Fixed
+
+- Fixed Anthropic stream handling by dropping unsigned thinking blocks, leading empty text chunks, and empty assistant messages.
+- Fixed tool error propagation so failures are sent back to the model in tool result content.
+- Fixed file change stats reset behavior on `/new` and `/clear`.
+- Fixed markdown finalization to preserve block-level structure after streaming.
+- Fixed editor/input UX regressions (newline border flicker and truncation/history cycling conflicts).
+- Fixed git-status prompt spacing and reduced git-context prompt cap for stability.
+
+### Tests
+
+- Added result assertions for tool error paths.
+
 ## 0.2.7 - 2026-03-14
 
 ### Added
