@@ -71,7 +71,11 @@ def _transform_command(command: str) -> str:
 
     # Replace 'ls' with 'eza --git-ignore', preserving any following arguments
     # We only match 'ls' as a word (not part of another command)
-    return re.sub(r"\bls\b", "eza --git-ignore", command, count=1)
+    result = re.sub(r"\bls\b", "eza --git-ignore", command, count=1)
+    # eza blocks on stdin in subprocess envs when no path arg is given
+    if all(a.startswith("-") for a in stripped.split()[1:]):
+        result += " ."
+    return result
 
 
 class TruncationResult:
