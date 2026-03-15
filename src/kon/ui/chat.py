@@ -1,7 +1,10 @@
+import time
 from typing import Literal
 
+from rich.spinner import Spinner
 from rich.text import Text
 from textual.containers import VerticalScroll
+from textual.timer import Timer
 from textual.widgets import Label
 
 from kon import config
@@ -30,6 +33,9 @@ class ChatLog(VerticalScroll):
         self._tool_blocks: dict[str, ToolBlock] = {}
         self._anchor_released: bool = False
         self._last_status_label: Label | None = None
+        self._spinner_label: Label | None = None
+        self._spinner: Spinner | None = None
+        self._spinner_timer: Timer | None = None
 
     def on_mount(self) -> None:
         self.anchor()
@@ -59,6 +65,7 @@ class ChatLog(VerticalScroll):
         self.call_after_refresh(lambda: self.remove_children(to_remove))
 
     async def remove_all_children(self) -> None:
+        self._stop_spinner()
         children = list(self.children)
         if children:
             await self.remove_children(children)
@@ -83,6 +90,7 @@ class ChatLog(VerticalScroll):
         return children[-1] is self._last_status_label
 
     def show_status(self, message: str) -> None:
+        self._stop_spinner()
         info_color = config.ui.colors.info
         text = Text(f"✓ {message}", style=info_color)
 
@@ -98,6 +106,35 @@ class ChatLog(VerticalScroll):
         self.mount(label)
         self._last_status_label = label
         self._scroll_if_anchored(animate=False)
+
+    def show_spinner_status(self, message: str) -> None:
+        self._stop_spinner()
+        self._spinner = Spinner("dots")
+        self._spinner_label = Label(self._render_spinner_text(message))
+        self._spinner_label.add_class("info-message")
+        self.mount(self._spinner_label)
+        self._last_status_label = self._spinner_label
+        self._spinner_timer = self.set_interval(0.15, lambda: self._tick_spinner(message))
+        self._scroll_if_anchored(animate=False)
+
+    def _render_spinner_text(self, message: str) -> Text:
+        info_color = config.ui.colors.info
+        spinner_text = self._spinner.render(time.time()) if self._spinner else ""
+        result = Text()
+        result.append(str(spinner_text), style=info_color)
+        result.append(f" {message}", style=info_color)
+        return result
+
+    def _tick_spinner(self, message: str) -> None:
+        if self._spinner_label is not None and self._spinner is not None:
+            self._spinner_label.update(self._render_spinner_text(message))
+
+    def _stop_spinner(self) -> None:
+        if self._spinner_timer is not None:
+            self._spinner_timer.stop()
+            self._spinner_timer = None
+        self._spinner = None
+        self._spinner_label = None
 
     def add_session_info(self, version: str) -> None:
         info_text = Text()
@@ -254,6 +291,7 @@ class ChatLog(VerticalScroll):
         self._current_block = None
 
     def add_compaction_message(self, tokens_before: int) -> None:
+        self._stop_spinner()
         # Remove the "Auto-compacting..." status if it's still showing
         if self._is_last_child_status() and self._last_status_label is not None:
             self._last_status_label.remove()

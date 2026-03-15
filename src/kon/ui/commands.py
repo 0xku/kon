@@ -287,7 +287,7 @@ Keybindings:
             chat.add_info_message("No conversation to handoff", error=True)
             return
 
-        chat.show_status("Creating handoff...")
+        chat.show_spinner_status("Creating handoff...")
         self.run_worker(self._do_handoff(query), exclusive=False)
 
     def _create_new_session(self) -> Session:
@@ -724,7 +724,7 @@ Keybindings:
             chat.add_info_message("No conversation to compact")
             return
 
-        chat.show_status("Compacting...")
+        chat.show_spinner_status("Compacting...")
         self.run_worker(self._do_compact(), exclusive=False)
 
     async def _do_compact(self) -> None:

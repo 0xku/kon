@@ -846,7 +846,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                             if self._current_block_type:
                                 chat.end_block()
                                 self._current_block_type = None
-                            chat.show_status("Auto-compacting...")
+                            chat.show_spinner_status("Auto-compacting...")
 
                         case CompactionEndEvent(tokens_before=tb, aborted=ab):
                             if ab:
