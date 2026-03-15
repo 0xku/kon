@@ -190,6 +190,8 @@ class ToolBlock(Static):
             return Text()
         if not truncate:
             return self._render_markup_safe(self._call_msg)
+        if self._result is not None:
+            return self._render_markup_safe(self._call_msg.split("\n")[0])
         lines = self._call_msg.split("\n")
         if len(lines) > self.MAX_HEADER_LINES:
             display_msg = "\n".join(lines[: self.MAX_HEADER_LINES])
