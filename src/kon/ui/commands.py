@@ -365,7 +365,6 @@ Keybindings:
 
         await self._reset_session_ui(chat, info_bar, status)
         self._render_session_entries(self._session)
-        chat.add_info_message(f"Started handoff from {source_session_id[:8]}")
 
         input_box.clear()
         input_box.insert(prompt)
