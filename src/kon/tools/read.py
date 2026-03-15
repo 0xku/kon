@@ -34,6 +34,7 @@ class ReadParams(BaseModel):
 class ReadTool(BaseTool):
     name = "read"
     params = ReadParams
+    mutating = False
     description = (
         "Read the contents of a file. "
         f"Truncates to {MAX_LINES_PER_FILE} lines and {MAX_CHARS_PER_LINE} chars per line. "

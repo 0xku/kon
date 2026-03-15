@@ -5,13 +5,16 @@ Streams chunks from the LLM and yields typed events as they arrive:
 - ThinkingStartEvent/DeltaEvent/EndEvent - model's reasoning
 - TextStartEvent/DeltaEvent/EndEvent - response text
 - ToolStartEvent/ArgsDeltaEvent/EndEvent - tool calls being built
+- ToolApprovalEvent - when a tool requires user approval
 - ToolResultEvent - after each tool execution
 - TurnEndEvent - final event with complete AssistantMessage
 
 Tool execution strategy:
 - All tool calls are collected during streaming
 - After streaming completes, all ToolEndEvents are yielded first (UI shows pending state)
-- Then tools are executed one-by-one, each yielding ToolResultEvent when done
+- Each tool is permission-checked; safe read-only tools auto-approve, mutating tools
+  yield ToolApprovalEvent and await user approval before executing
+- Then ToolResultEvent is yielded with the result (or denial reason)
 
 Cancellation handling:
 - Races each stream chunk against cancel_event using asyncio.wait(FIRST_COMPLETED)
@@ -59,6 +62,7 @@ from .events import (
     ThinkingDeltaEvent,
     ThinkingEndEvent,
     ThinkingStartEvent,
+    ToolApprovalEvent,
     ToolArgsDeltaEvent,
     ToolArgsTokenUpdateEvent,
     ToolEndEvent,
@@ -69,6 +73,7 @@ from .events import (
 )
 from .llm import BaseProvider
 from .llm.base import LLMStream
+from .permissions import ApprovalResponse, PermissionDecision, check_permission
 from .tools import BaseTool, get_tool, get_tool_definitions
 
 _STREAM_EXHAUSTED = object()
@@ -183,6 +188,24 @@ async def _execute_tool(
             content=[TextContent(text=f"Error executing tool: {e}")],
             is_error=True,
         ), None
+
+
+async def _await_approval(
+    future: asyncio.Future[ApprovalResponse], cancel_event: asyncio.Event | None
+) -> ApprovalResponse | None:
+    if cancel_event is None:
+        return await future
+    if cancel_event.is_set():
+        return None
+    cancel_task = asyncio.create_task(cancel_event.wait())
+    done, pending = await asyncio.wait({future, cancel_task}, return_when=asyncio.FIRST_COMPLETED)
+    for task in pending:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    if future in done:
+        return future.result()
+    return None
 
 
 async def run_single_turn(
@@ -469,24 +492,45 @@ async def run_single_turn(
 
     # Now execute tools one by one
     for pending in finalized_tools:
+        file_changes = None
         if cancel_event and cancel_event.is_set():
-            # Skip remaining tools
             result = _create_skipped_tool_result(pending.tool_call)
-            tool_results.append(result)
-            yield ToolResultEvent(
-                tool_call_id=pending.tool_call.id, tool_name=pending.tool_call.name, result=result
-            )
         else:
-            result, file_changes = await _execute_tool(
-                pending.tool_call, pending.tool, cancel_event
+            # Unknown tools get ALLOW; they'll error in _execute_tool anyway
+            decision = (
+                check_permission(pending.tool, pending.tool_call.arguments)
+                if pending.tool
+                else PermissionDecision.ALLOW
             )
-            tool_results.append(result)
-            yield ToolResultEvent(
-                tool_call_id=pending.tool_call.id,
-                tool_name=pending.tool_call.name,
-                result=result,
-                file_changes=file_changes,
-            )
+
+            approved = True
+            if decision == PermissionDecision.PROMPT:
+                loop = asyncio.get_running_loop()
+                future: asyncio.Future[ApprovalResponse] = loop.create_future()
+                yield ToolApprovalEvent(
+                    tool_call_id=pending.tool_call.id,
+                    tool_name=pending.tool_call.name,
+                    future=future,
+                )
+                approved = await _await_approval(future, cancel_event) == ApprovalResponse.APPROVE
+
+            if approved:
+                result, file_changes = await _execute_tool(
+                    pending.tool_call, pending.tool, cancel_event
+                )
+            else:
+                result = _create_skipped_tool_result(
+                    pending.tool_call,
+                    reason="Tool call denied by user. Ask the user what they'd like you to do instead.",
+                )
+
+        tool_results.append(result)
+        yield ToolResultEvent(
+            tool_call_id=pending.tool_call.id,
+            tool_name=pending.tool_call.name,
+            result=result,
+            file_changes=file_changes,
+        )
 
     if interrupted:
         yield InterruptedEvent(message="Interrupted by user")

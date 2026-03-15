@@ -268,6 +268,7 @@ Most important knobs:
 - `llm.tool_call_idle_timeout_seconds` (fallback timeout for stalled tool-call streaming)
 - `compaction.on_overflow`, `compaction.buffer_tokens`
 - `agent.max_turns`, `agent.default_context_window`
+- `permissions.mode` (`"prompt"` requires approval for mutating tools, `"auto"` skips approval)
 
 You can also theme the UI via `[ui.colors]` values.
 

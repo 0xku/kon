@@ -90,12 +90,17 @@ class AgentConfig(BaseModel):
     default_context_window: int = 200000
 
 
+class PermissionsConfig(BaseModel):
+    mode: Literal["prompt", "auto"] = "prompt"
+
+
 class ConfigSchema(BaseModel):
     meta: MetaConfig
     llm: LLMConfig
     ui: UIConfig
     compaction: CompactionConfig
     agent: AgentConfig
+    permissions: PermissionsConfig
 
 
 class _BinariesConfig:
@@ -181,6 +186,10 @@ class Config:
     @property
     def agent(self) -> AgentConfig:
         return self._parsed.agent
+
+    @property
+    def permissions(self) -> PermissionsConfig:
+        return self._parsed.permissions
 
     @property
     def binaries(self) -> _BinariesConfig:
