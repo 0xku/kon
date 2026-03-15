@@ -85,7 +85,6 @@ class AnthropicProvider(BaseProvider):
             "model": self.config.model,
             "messages": anthropic_messages,
             "max_tokens": max_tok,
-            "stream": True,
         }
 
         if system_prompt:
@@ -210,7 +209,12 @@ class AnthropicProvider(BaseProvider):
             if isinstance(msg, UserMessage):
                 result.append(self._convert_user_message(msg))
             elif isinstance(msg, AssistantMessage):
-                result.append(self._convert_assistant_message(msg))
+                assistant_message = self._convert_assistant_message(msg)
+                # Anthropic rejects replayed thinking blocks without signatures.
+                # Interrupted/malformed historical messages can contain such blocks,
+                # so we drop them and skip assistant entries that become empty.
+                if assistant_message["content"]:
+                    result.append(assistant_message)
             elif isinstance(msg, ToolResultMessage):
                 # Anthropic requires tool results as user messages
                 result.append(self._convert_tool_result(msg))
@@ -271,12 +275,16 @@ class AnthropicProvider(BaseProvider):
 
         for item in msg.content:
             if isinstance(item, ThinkingContent):
+                # Anthropic requires a signature on replayed thinking blocks.
+                # Keep valid signed thinking and drop invalid/partial thinking.
+                if not item.signature:
+                    continue
+
                 thinking_block: dict[str, Any] = {
                     "type": "thinking",
                     "thinking": sanitize_surrogates(item.thinking),
+                    "signature": item.signature,
                 }
-                if item.signature:
-                    thinking_block["signature"] = item.signature
                 parts.append(thinking_block)
             elif isinstance(item, TextContent):
                 parts.append({"type": "text", "text": sanitize_surrogates(item.text)})
