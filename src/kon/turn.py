@@ -492,6 +492,7 @@ async def run_single_turn(
 
     # Now execute tools one by one
     for pending in finalized_tools:
+        file_changes = None
         if cancel_event and cancel_event.is_set():
             result = _create_skipped_tool_result(pending.tool_call)
         else:
@@ -513,16 +514,15 @@ async def run_single_turn(
                 )
                 approved = await _await_approval(future, cancel_event) == ApprovalResponse.APPROVE
 
-            file_changes = None
             if approved:
                 result, file_changes = await _execute_tool(
                     pending.tool_call, pending.tool, cancel_event
                 )
             else:
                 result = _create_skipped_tool_result(
-                        pending.tool_call,
-                        reason="Tool call denied by user. Ask the user what they'd like you to do instead.",
-                    )
+                    pending.tool_call,
+                    reason="Tool call denied by user. Ask the user what they'd like you to do instead.",
+                )
 
         tool_results.append(result)
         yield ToolResultEvent(

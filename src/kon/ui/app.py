@@ -688,14 +688,17 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         event.stop()
         self.run_worker(self._load_session_by_id(event.target_session_id), exclusive=True)
 
+    def _clear_approval_state(self) -> None:
+        self._approval_future = None
+        if self._approval_tool_id is not None:
+            chat = self.query_one("#chat-log", ChatLog)
+            chat.hide_tool_approval(self._approval_tool_id)
+            self._approval_tool_id = None
+
     def deny_pending_approval(self) -> bool:
         if self._approval_future and not self._approval_future.done():
             self._approval_future.set_result(ApprovalResponse.DENY)
-            self._approval_future = None
-            if self._approval_tool_id is not None:
-                chat = self.query_one("#chat-log", ChatLog)
-                chat.hide_tool_approval(self._approval_tool_id)
-                self._approval_tool_id = None
+            self._clear_approval_state()
             return True
         return False
 
@@ -710,11 +713,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             return
         event.prevent_default()
         event.stop()
-        self._approval_future = None
-        if self._approval_tool_id is not None:
-            chat = self.query_one("#chat-log", ChatLog)
-            chat.hide_tool_approval(self._approval_tool_id)
-            self._approval_tool_id = None
+        self._clear_approval_state()
 
     @on(InputBox.Submitted)
     def on_input_submitted(self, event: InputBox.Submitted) -> None:
@@ -934,10 +933,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
 
             self._interrupt_requested = False
             self._cancel_event = None
-            self._approval_future = None
-            if self._approval_tool_id is not None:
-                chat.hide_tool_approval(self._approval_tool_id)
-            self._approval_tool_id = None
+            self._clear_approval_state()
             status.set_status("idle")
 
             if was_interrupted:
