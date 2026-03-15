@@ -34,6 +34,12 @@ _SKILL_TRIGGER_MARKER = "\u2063"
 
 
 class Kon(TextArea):
+    class ScrollInfo(Message):
+        def __init__(self, lines_above: int, lines_below: int) -> None:
+            super().__init__()
+            self.lines_above = lines_above
+            self.lines_below = lines_below
+
     def __init__(self, on_paste: Callable[[str], str], **kwargs) -> None:
         super().__init__(**kwargs)
         self._on_paste_transform = on_paste
@@ -43,6 +49,22 @@ class Kon(TextArea):
         event.prevent_default()
         transformed = self._on_paste_transform(event.text)
         await super()._on_paste(events.Paste(transformed))
+
+    def _notify_scroll_info(self) -> None:
+        total_lines = self.document.line_count
+        visible_lines = self.scrollable_content_region.height
+        if visible_lines <= 0:
+            return
+        lines_above = int(self.scroll_y)
+        lines_below = max(0, total_lines - lines_above - visible_lines)
+        self.post_message(self.ScrollInfo(lines_above, lines_below))
+
+    def watch_scroll_y(self, old_value: float, new_value: float) -> None:
+        super().watch_scroll_y(old_value, new_value)
+        self._notify_scroll_info()
+
+    def on_text_area_changed(self, event: TextArea.Changed) -> None:
+        self.call_after_refresh(self._notify_scroll_info)
 
 
 class InputBox(Vertical):
@@ -73,13 +95,19 @@ class InputBox(Vertical):
     InputBox {
         height: auto;
         min-height: 3;
+        max-height: 30vh;
         border-top: solid grey;
         border-bottom: solid grey;
+        border-title-align: left;
+        border-subtitle-align: left;
+        border-title-color: grey;
+        border-subtitle-color: grey;
     }
 
     InputBox .input-textarea {
         width: 1fr;
         height: auto;
+        max-height: 100%;
         border: none;
         background: transparent;
         padding: 0 1;
@@ -131,6 +159,11 @@ class InputBox(Vertical):
         textarea.show_line_numbers = False
         textarea.highlight_cursor_line = False
 
+    def on_kon_scroll_info(self, event: Kon.ScrollInfo) -> None:
+        event.stop()
+        self.border_title = f"↑ {event.lines_above} more" if event.lines_above > 0 else ""
+        self.border_subtitle = f"↓ {event.lines_below} more" if event.lines_below > 0 else ""
+
     @property
     def text(self) -> str:
         return self.query_one("#input-textarea", TextArea).text
@@ -146,6 +179,8 @@ class InputBox(Vertical):
     def clear(self, *, reset_pastes: bool = True) -> None:
         self.query_one("#input-textarea", TextArea).clear()
         self._selected_skill_commands.clear()
+        self.border_title = ""
+        self.border_subtitle = ""
         if reset_pastes:
             self._reset_pastes()
 
@@ -333,24 +368,28 @@ class InputBox(Vertical):
     def action_cursor_up(self) -> None:
         if self._is_completing:
             self.post_message(self.CompletionMove(-1))
+            return
+        textarea = self.query_one("#input-textarea", TextArea)
+        row, _ = textarea.selection.start
+        if row > 0:
+            textarea.action_cursor_up()
+        elif not textarea.text.strip() or self._history.is_browsing:
+            self._history_navigate(-1)
         else:
-            textarea = self.query_one("#input-textarea", TextArea)
-            row, _ = textarea.selection.start
-            if row == 0:
-                self._history_navigate(-1)
-            else:
-                textarea.action_cursor_up()
+            textarea.action_cursor_line_start()
 
     def action_cursor_down(self) -> None:
         if self._is_completing:
             self.post_message(self.CompletionMove(1))
+            return
+        textarea = self.query_one("#input-textarea", TextArea)
+        row, _ = textarea.selection.start
+        if row < textarea.document.line_count - 1:
+            textarea.action_cursor_down()
+        elif self._history.is_browsing:
+            self._history_navigate(1)
         else:
-            textarea = self.query_one("#input-textarea", TextArea)
-            row, _ = textarea.selection.start
-            if row == textarea.document.line_count - 1:
-                self._history_navigate(1)
-            else:
-                textarea.action_cursor_down()
+            textarea.action_cursor_line_end()
 
     def action_tab_complete(self) -> None:
         """Handle Tab key for path completion."""

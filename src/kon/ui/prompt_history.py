@@ -74,6 +74,10 @@ class PromptHistory:
             self._append_to_file(text)
         self._reset_index()
 
+    @property
+    def is_browsing(self) -> bool:
+        return self._index != 0
+
     def _reset_index(self) -> None:
         self._index = 0
         self._draft = ""
