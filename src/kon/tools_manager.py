@@ -1,5 +1,6 @@
 import asyncio
 import platform
+import re
 import shutil
 import stat
 import sys
@@ -118,7 +119,10 @@ async def _get_latest_version(session: aiohttp.ClientSession, repo: str) -> str:
     ) as resp:
         resp.raise_for_status()
         data = await resp.json()
-        return data["tag_name"].lstrip("v")
+        version = data["tag_name"].removeprefix("v")
+        if not re.match(r"^\d+\.\d+(\.\d+)?$", version):
+            raise ValueError(f"Unexpected version format: {version}")
+        return version
 
 
 async def _download_file(session: aiohttp.ClientSession, url: str, dest: Path) -> None:
@@ -139,7 +143,7 @@ def _extract_binary(archive_path: Path, binary_name: str, dest: Path) -> Path:
 
         if str(archive_path).endswith(".tar.gz"):
             with tarfile.open(archive_path, "r:gz") as tar:
-                tar.extractall(tmp)
+                tar.extractall(tmp, filter="data")
         elif str(archive_path).endswith(".zip"):
             with zipfile.ZipFile(archive_path) as zf:
                 zf.extractall(tmp)
