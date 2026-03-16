@@ -1,4 +1,12 @@
+import pytest
+
+from kon.ui import prompt_history as ph
 from kon.ui.input import InputBox
+
+
+@pytest.fixture(autouse=True)
+def _isolate_history(tmp_path, monkeypatch):
+    monkeypatch.setattr(ph, "_history_path", lambda: tmp_path / "prompt-history.jsonl")
 
 
 class _FakeSelection:
