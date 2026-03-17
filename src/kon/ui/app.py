@@ -34,6 +34,7 @@ from ..events import (
     ThinkingDeltaEvent,
     ThinkingEndEvent,
     ThinkingStartEvent,
+    ToolApprovalEvent,
     ToolArgsTokenUpdateEvent,
     ToolEndEvent,
     ToolResultEvent,
@@ -55,6 +56,7 @@ from ..llm import (
     resolve_provider_api_type,
 )
 from ..loop import Agent
+from ..permissions import ApprovalResponse
 from ..session import Session
 from ..tools import DEFAULT_TOOLS, get_tools
 from ..update_check import get_newer_pypi_version
@@ -155,6 +157,8 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self._interrupt_requested = False
         self._abort_shown = False
         self._current_block_type: str | None = None
+        self._approval_future: asyncio.Future[ApprovalResponse] | None = None
+        self._approval_tool_id: str | None = None
         self._hide_thinking = False
         self._fd_path: str | None = None
         self._selection_mode: SelectionMode | None = None
@@ -684,6 +688,33 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         event.stop()
         self.run_worker(self._load_session_by_id(event.target_session_id), exclusive=True)
 
+    def _clear_approval_state(self) -> None:
+        self._approval_future = None
+        if self._approval_tool_id is not None:
+            chat = self.query_one("#chat-log", ChatLog)
+            chat.hide_tool_approval(self._approval_tool_id)
+            self._approval_tool_id = None
+
+    def deny_pending_approval(self) -> bool:
+        if self._approval_future and not self._approval_future.done():
+            self._approval_future.set_result(ApprovalResponse.DENY)
+            self._clear_approval_state()
+            return True
+        return False
+
+    def on_key(self, event: events.Key) -> None:
+        if self._approval_future is None or self._approval_future.done():
+            return
+        if event.key in ("y", "Y"):
+            self._approval_future.set_result(ApprovalResponse.APPROVE)
+        elif event.key in ("n", "N"):
+            self._approval_future.set_result(ApprovalResponse.DENY)
+        else:
+            return
+        event.prevent_default()
+        event.stop()
+        self._clear_approval_state()
+
     @on(InputBox.Submitted)
     def on_input_submitted(self, event: InputBox.Submitted) -> None:
         display_text = event.text.strip()
@@ -825,7 +856,14 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                         case ToolEndEvent(tool_call_id=id, display=display):
                             chat.update_tool_call_msg(id, display)
 
+                        case ToolApprovalEvent(tool_call_id=id, tool_name=name, future=f):
+                            chat.show_tool_approval(id)
+                            self._approval_future = f
+                            self._approval_tool_id = id
+
                         case ToolResultEvent(tool_call_id=id, result=r, file_changes=fc):
+                            self._approval_future = None
+                            self._approval_tool_id = None
                             if r:
                                 if r.display:
                                     text = r.display
@@ -895,6 +933,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
 
             self._interrupt_requested = False
             self._cancel_event = None
+            self._clear_approval_state()
             status.set_status("idle")
 
             if was_interrupted:

@@ -251,7 +251,7 @@ Config lives at `~/.kon/config.toml` (auto-created on first run).
 Kon also runs automatic config migrations on startup for older schemas. When a migration is applied,
 the previous file is backed up to `~/.kon/config.toml.bak.<timestamp>`.
 
-Here's the full default config with all available options:
+Here’s the full default config with all available options:
 
 ```toml
 [meta]
@@ -277,6 +277,9 @@ buffer_tokens = 20000
 [agent]
 max_turns = 500
 default_context_window = 200000
+
+[permissions]
+mode = "prompt" # "prompt" requires approval for mutating tools, "auto" skips approval
 
 [ui.colors]
 dim = "#666666"

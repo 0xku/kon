@@ -181,6 +181,7 @@ class ToolBlock(Static):
         self._call_msg = call_msg
         self._result: str | None = None
         self._success: bool | None = None
+        self._awaiting_approval: bool = False
         self.add_class("tool-block")
         self._set_state(None)
 
@@ -188,18 +189,22 @@ class ToolBlock(Static):
         yield Label(self._format_header(), id="tool-header")
         yield Label(self._format_pending_output(), id="tool-output")
 
-    def _format_header(self) -> Text:
+    def _format_header(self, truncate: bool = True) -> Text:
         result = Text()
         formatted_name = " ".join(word.capitalize() for word in self._name.split("_"))
         result.append(formatted_name, style="bold")
         if self._call_msg:
             result.append(" ")
-            result.append_text(self._format_call_msg())
+            result.append_text(self._format_call_msg(truncate=truncate))
         return result
 
-    def _format_call_msg(self) -> Text:
+    def _format_call_msg(self, truncate: bool = True) -> Text:
         if not self._call_msg:
             return Text()
+        if not truncate:
+            return self._render_markup_safe(self._call_msg)
+        if self._result is not None:
+            return self._render_markup_safe(self._call_msg.split("\n")[0])
         lines = self._call_msg.split("\n")
         if len(lines) > self.MAX_HEADER_LINES:
             display_msg = "\n".join(lines[: self.MAX_HEADER_LINES])
@@ -228,13 +233,38 @@ class ToolBlock(Static):
         return text
 
     def _set_state(self, success: bool | None) -> None:
-        self.remove_class("-pending", "-success", "-error")
+        self.remove_class("-pending", "-success", "-error", "-approval")
         if success is None:
-            self.add_class("-pending")
+            if self._awaiting_approval:
+                self.add_class("-approval")
+            else:
+                self.add_class("-pending")
         elif success:
             self.add_class("-success")
         else:
             self.add_class("-error")
+
+    def show_approval(self) -> None:
+        self._awaiting_approval = True
+        self._set_state(None)
+        self.query_one("#tool-header", Label).update(self._format_header(truncate=False))
+        self.query_one("#tool-output", Label).update(self._format_approval_controls())
+
+    def hide_approval(self) -> None:
+        self._awaiting_approval = False
+        self._set_state(None)
+        self.query_one("#tool-header", Label).update(self._format_header())
+        self.query_one("#tool-output", Label).update(self._format_pending_output())
+
+    def _format_approval_controls(self) -> Text:
+        accent_style = f"{config.ui.colors.accent} bold"
+        dim_style = config.ui.colors.dim
+        text = Text()
+        text.append("[y]", style=accent_style)
+        text.append(" approve  ", style=dim_style)
+        text.append("[n]", style=accent_style)
+        text.append(" deny", style=dim_style)
+        return text
 
     def update_call_msg(self, call_msg: str) -> None:
         self._call_msg = call_msg
@@ -243,6 +273,7 @@ class ToolBlock(Static):
     def set_result(self, content: str, success: bool, markup: bool = True) -> None:
         self._result = content
         self._success = success
+        self._awaiting_approval = False
         self._set_state(success)
 
         # Parse Rich markup for colored output (tools control their own truncation/styling)

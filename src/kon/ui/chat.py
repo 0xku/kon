@@ -285,6 +285,18 @@ class ChatLog(VerticalScroll):
             block.update_call_msg(call_msg)
             self._scroll_if_anchored(animate=False)
 
+    def show_tool_approval(self, tool_id: str) -> None:
+        block = self._tool_blocks.get(tool_id)
+        if block:
+            block.show_approval()
+            self._scroll_if_anchored(animate=False)
+
+    def hide_tool_approval(self, tool_id: str) -> None:
+        block = self._tool_blocks.get(tool_id)
+        if block:
+            block.hide_approval()
+            self._scroll_if_anchored(animate=False)
+
     def end_block(self) -> None:
         # Finalize content/thinking blocks to render markdown once
         if isinstance(self._current_block, ContentBlock | ThinkingBlock):

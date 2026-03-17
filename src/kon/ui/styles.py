@@ -98,6 +98,12 @@ Screen {{
     color: #c0c0d0;
 }}
 
+.tool-block.-approval {{
+    background: {colors.tool_bg.pending};
+    color: #c0c0d0;
+    border-left: thick {colors.accent};
+}}
+
 .tool-block.-success {{
     background: {colors.tool_bg.success};
     color: #c0d0c0;

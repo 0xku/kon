@@ -25,8 +25,16 @@ class WriteTool(BaseTool):
     )
 
     def format_call(self, params: WriteParams) -> str:
-        accent = config.ui.colors.accent
-        return f"[{accent}]{shorten_path(params.path)}[/{accent}]"
+        colors = config.ui.colors
+        header = f"[{colors.accent}]{shorten_path(params.path)}[/{colors.accent}]"
+        lines = params.content.splitlines()
+        preview = "\n".join(
+            f"[{colors.diff_added}]+{line.replace('[', '\\[')}[/{colors.diff_added}]"
+            for line in lines[:20]
+        )
+        if len(lines) > 20:
+            preview += f"\n[dim]... ({len(lines) - 20} more lines)[/dim]"
+        return f"{header}\n{preview}"
 
     async def execute(
         self, params: WriteParams, cancel_event: asyncio.Event | None = None
