@@ -98,10 +98,10 @@ class ThinkingBlock(_StreamingMarkdownMixin, Static):
         """Show only the first line with a truncation indicator."""
         lines = self._content.strip().split("\n")
         first_line = lines[0].strip() if lines else ""
-        dim_style = config.ui.colors.dim
-        text = Text(first_line, style=dim_style)
+        style = f"{config.ui.colors.dim} italic"
+        text = Text(first_line, style=style)
         if len(lines) > 1:
-            text.append(f" ... ({len(lines) - 1} more lines)", style=dim_style)
+            text.append(f" ... ({len(lines) - 1} more lines)", style=style)
         return text
 
     async def append(self, text: str) -> None:
