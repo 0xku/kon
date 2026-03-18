@@ -64,10 +64,8 @@ Screen {{
 
 /* User message */
 .user-block {{
-    padding: 0 1;
+    padding: 1 1;
     margin: 1 0 0 0;
-    border-top: solid {colors.border};
-    border-bottom: solid {colors.border};
     background: {colors.panel_user};
 }}
 
