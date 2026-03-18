@@ -1,2 +1,0 @@
-Kon tool-call demo file
-- Updated by edit tool

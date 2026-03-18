@@ -1,5 +1,0 @@
-Line 1: Demo file for back-to-back tool calls
-Line 2: Testing write tool
-Line 3: More content here
-Line 4: Successfully edited!
-Line 5: Final line

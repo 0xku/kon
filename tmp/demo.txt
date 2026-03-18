@@ -1,6 +1,0 @@
-Hello! This is a demo file.
-It has multiple lines.
-We'll use this to demonstrate the tools.
-Line 4: The speedy orange cat.
-Line 5: Jumps over the lazy dog.
-Line 6: End of file.

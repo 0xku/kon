@@ -1,4 +1,0 @@
-Kon tool demo file
-- created via write tool
-- safe to delete
-- edited via edit tool
