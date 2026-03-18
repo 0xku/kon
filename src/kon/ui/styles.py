@@ -24,21 +24,25 @@ Screen {{
     color: {colors.fg};
 }}
 
-/* Thinking block - dim, hidden by default */
+/* Thinking block - dim italic with left border */
 .thinking-block {{
     color: {colors.dim};
-    padding: 0 1;
-    margin-top: 1;
+    text-style: italic;
+    padding: 0 1 0 1;
+    margin: 1 0 0 1;
+    border-left: thick {colors.border};
 }}
 
 .thinking-block.-hidden {{
     display: none;
     height: 0;
     margin: 0;
+    border: none;
 }}
 
 #thinking-content {{
     color: {colors.dim};
+    text-style: italic;
 }}
 
 /* Content block */

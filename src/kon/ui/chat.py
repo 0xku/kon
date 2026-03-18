@@ -297,10 +297,21 @@ class ChatLog(VerticalScroll):
                 # results, so later siblings were mounted compact.  Now that
                 # this block has detail output, the next tool needs its
                 # margin back so the detail block doesn't run into it.
-                next_sibling = block.next_sibling
+                next_sibling = self._next_child(block)
                 if isinstance(next_sibling, ToolBlock):
                     next_sibling.remove_class("-compact")
             self._scroll_if_anchored(animate=False)
+
+    def _next_child(self, child):
+        children = list(self.children)
+        try:
+            index = children.index(child)
+        except ValueError:
+            return None
+        next_index = index + 1
+        if next_index >= len(children):
+            return None
+        return children[next_index]
 
     def update_tool_call_msg(self, tool_id: str, call_msg: str) -> None:
         block = self._tool_blocks.get(tool_id)
