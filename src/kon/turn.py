@@ -97,6 +97,7 @@ class PendingToolCall:
     tool_call: ToolCall
     tool: BaseTool | None
     display: str
+    approval_preview: str = ""
     preflight_error: str | None = None
 
 
@@ -157,17 +158,23 @@ def _finalize_tool_call_data(tool_call_data: dict, tools: list[BaseTool]) -> Pen
 
     tool = get_tool(tool_call.name)
     display = ""
+    approval_preview = ""
     if tool and preflight_error is None:
         try:
             params = tool.params(**arguments)
             display = tool.format_call(params)
+            approval_preview = tool.format_preview(params) or ""
         except (TypeError, KeyError, ValueError, ValidationError):
             preflight_error = (
                 "Tool call arguments failed validation before execution; skipping execution."
             )
 
     return PendingToolCall(
-        tool_call=tool_call, tool=tool, display=display, preflight_error=preflight_error
+        tool_call=tool_call,
+        tool=tool,
+        display=display,
+        approval_preview=approval_preview,
+        preflight_error=preflight_error,
     )
 
 
@@ -546,6 +553,7 @@ async def run_single_turn(
                 yield ToolApprovalEvent(
                     tool_call_id=pending.tool_call.id,
                     tool_name=pending.tool_call.name,
+                    display=pending.approval_preview,
                     future=future,
                 )
                 approved = await _await_approval(future, cancel_event) == ApprovalResponse.APPROVE

@@ -24,3 +24,7 @@ class BaseTool[T: BaseModel](ABC):
             return ""
         parts = [f"{k}={v}" for k, v in data.items()]
         return " / ".join(parts)
+
+    def format_preview(self, params: T) -> str | None:
+        """Extended preview shown only during approval prompts. Returns None by default."""
+        return None

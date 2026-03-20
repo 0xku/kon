@@ -133,6 +133,7 @@ class ToolApprovalEvent:
     type: Literal["tool_approval"] = "tool_approval"
     tool_call_id: str = ""
     tool_name: str = ""
+    display: str = ""
     future: asyncio.Future[ApprovalResponse] | None = None
 
 

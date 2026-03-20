@@ -279,15 +279,21 @@ class ToolBlock(Static):
         else:
             self.add_class("-error")
 
-    def show_approval(self) -> None:
+    def show_approval(self, preview: str | None = None) -> None:
         self._awaiting_approval = True
         self._set_state(None)
-        self.query_one("#tool-header", Label).update(self._format_header(truncate=False))
+        self.query_one("#tool-header", Label).update(self._format_header())
         output = self.query_one("#tool-output", Label)
         self.remove_class("-with-details")
         output.remove_class("-hidden")
         output.remove_class("-details")
-        output.update(self._format_approval_controls())
+
+        content = Text()
+        if preview:
+            content.append_text(self._render_markup_safe(preview))
+            content.append("\n\n")
+        content.append_text(self._format_approval_controls())
+        output.update(content)
 
     def hide_approval(self) -> None:
         self._awaiting_approval = False

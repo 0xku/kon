@@ -106,7 +106,6 @@ Screen {{
 }}
 
 .tool-block.-pending,
-.tool-block.-approval,
 .tool-block.-success,
 .tool-block.-error {{
     background: transparent;
@@ -114,8 +113,15 @@ Screen {{
     border: none;
 }}
 
-#tool-header {{
+.tool-block.-approval {{
+    background: transparent;
     color: {colors.dim};
+    border-left: thick {colors.accent};
+    margin: 1 0 1 1;
+    padding: 0 1 0 1;
+}}
+
+#tool-header {{
     text-style: none;
 }}
 

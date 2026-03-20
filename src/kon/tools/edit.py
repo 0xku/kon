@@ -172,8 +172,11 @@ class EditTool(BaseTool):
     )
 
     def format_call(self, params: EditParams) -> str:
-        accent = config.ui.colors.accent
-        return f"[{accent}]{shorten_path(params.path)}[/{accent}]"
+        return shorten_path(params.path)
+
+    def format_preview(self, params: EditParams) -> str | None:
+        diff, _, _ = generate_diff(params.old_string, params.new_string)
+        return format_diff_display(diff)
 
     async def execute(
         self, params: EditParams, cancel_event: asyncio.Event | None = None
