@@ -11,7 +11,7 @@ Screen {{
     layout: grid;
     grid-size: 1;
     grid-rows: 1fr auto auto auto auto auto;
-    background: {colors.bg};
+    background: transparent;
     color: {colors.fg};
 }}
 
@@ -20,7 +20,7 @@ Screen {{
     padding: 0 0 1 0;
     scrollbar-size: 0 0;
     align-vertical: bottom;
-    background: {colors.bg};
+    background: transparent;
     color: {colors.fg};
 }}
 

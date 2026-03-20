@@ -18,12 +18,13 @@ class WebFetchParams(BaseModel):
 
 class WebFetchTool(BaseTool):
     name = "web_fetch"
+    tool_icon = "*"
     mutating = False
     params = WebFetchParams
     description = (
         "Fetch a web page and extract its main content as clean text. "
         "Strips navigation, ads, and boilerplate. "
-        "Use web_search first to find relevant URLs."
+        "Use web_search first to find relevant URLs (if not provided by the user)."
     )
 
     def format_call(self, params: WebFetchParams) -> str:

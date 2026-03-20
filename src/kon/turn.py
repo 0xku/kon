@@ -558,8 +558,7 @@ async def run_single_turn(
                 result = _create_skipped_tool_result(
                     pending.tool_call,
                     reason=(
-                        "Tool call denied by user. Ask the user what they'd "
-                        "like you to do instead."
+                        "Tool call denied by user. Ask them what they'd like you to do instead."
                     ),
                 )
 

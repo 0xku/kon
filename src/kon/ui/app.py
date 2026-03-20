@@ -373,10 +373,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         # for prompt-prefix caching on llama-server and similar engines).
         if self._provider is not None and self._session is not None:
             self._agent = Agent(
-                provider=self._provider,
-                tools=self._tools,
-                session=self._session,
-                cwd=self._cwd,
+                provider=self._provider, tools=self._tools, session=self._session, cwd=self._cwd
             )
 
         self._sync_slash_commands()
@@ -807,10 +804,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
 
         if self._agent is None:
             self._agent = Agent(
-                provider=self._provider,
-                tools=self._tools,
-                session=self._session,
-                cwd=self._cwd,
+                provider=self._provider, tools=self._tools, session=self._session, cwd=self._cwd
             )
 
         current_prompt = prompt
@@ -1067,15 +1061,12 @@ def main():
     )
     parser.add_argument("--version", action="version", version=f"kon {VERSION}")
     parser.add_argument(
-        "--extra-tools",
-        help="Comma-separated extra tools to enable (e.g. web_search,web_fetch)",
+        "--extra-tools", help="Comma-separated extra tools to enable (e.g. web_search,web_fetch)"
     )
     args = parser.parse_args()
 
     extra_tools = (
-        [t.strip() for t in args.extra_tools.split(",") if t.strip()]
-        if args.extra_tools
-        else None
+        [t.strip() for t in args.extra_tools.split(",") if t.strip()] if args.extra_tools else None
     )
 
     app = Kon(

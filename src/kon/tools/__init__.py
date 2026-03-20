@@ -28,8 +28,14 @@ __all__ = [
 ]
 
 all_tools = [
-    ReadTool(), EditTool(), WriteTool(), BashTool(), GrepTool(), FindTool(),
-    WebSearchTool(), WebFetchTool(),
+    ReadTool(),
+    EditTool(),
+    WriteTool(),
+    BashTool(),
+    GrepTool(),
+    FindTool(),
+    WebSearchTool(),
+    WebFetchTool(),
 ]
 
 tools_by_name: dict[str, BaseTool] = {tool.name: tool for tool in all_tools}

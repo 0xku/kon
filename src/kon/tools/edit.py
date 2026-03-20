@@ -164,7 +164,7 @@ def format_diff_display(diff: str) -> str:
 
 class EditTool(BaseTool):
     name = "edit"
-    tool_icon = "*"
+    tool_icon = "+"
     params = EditParams
     description = (
         "Edit a file by replacing exact text. The old_string must match exactly "
