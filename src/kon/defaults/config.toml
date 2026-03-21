@@ -55,4 +55,7 @@ extra = ["web_search", "web_fetch"]
 theme = "gruvbox-dark"
 
 [permissions]
+# Approval behavior for mutating tools.
+# "prompt" asks before edits/writes and other mutating actions.
+# "auto" allows tool calls without approval prompts.
 mode = "prompt" # "prompt" or "auto"
