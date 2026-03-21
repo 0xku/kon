@@ -121,9 +121,7 @@ class FileChangesModal(ModalScreen[None]):
             if display_path.startswith(cwd + "/"):
                 display_path = display_path[len(cwd) + 1 :]
             else:
-                home = os.path.expanduser("~")
-                if display_path.startswith(home):
-                    display_path = "~" + display_path[len(home) :]
+                display_path = format_path(display_path)
 
             added_str = f"+{added}".rjust(max_added_w + 1)
             removed_str = f"-{removed}".rjust(max_removed_w + 1)

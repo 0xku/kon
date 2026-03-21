@@ -310,13 +310,19 @@ description: Global version
 """)
 
         monkeypatch.setattr("kon.context.skills.get_config_dir", lambda: global_dir)
+        monkeypatch.setenv("HOME", str(tmp_path))
 
         result = load_skills(str(repo))
 
         assert len(result.skills) == 1
         assert result.skills[0].name == "shared-skill"
         assert result.skills[0].path == str(local_skill_dir / "SKILL.md")
-        assert any("name collision" in w.message for w in result.warnings)
+        collision = next(w for w in result.warnings if "name collision" in w.message)
+        expected = (
+            'name collision: "shared-skill" already loaded '
+            "from ~/repo/.kon/skills/shared-skill/SKILL.md"
+        )
+        assert collision.message == expected
 
     def test_empty_when_no_skill_directories(self, tmp_path, monkeypatch):
         repo = tmp_path / "repo"

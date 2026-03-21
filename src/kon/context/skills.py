@@ -9,6 +9,7 @@ Discovery locations:
 2. Project: <cwd>/.kon/skills/
 """
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,13 @@ from ._xml import escape_xml
 MAX_NAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
 MAX_CMD_INFO_LENGTH = 32
+
+
+def shorten_path(path: str) -> str:
+    home = os.path.expanduser("~")
+    if path.startswith(home):
+        return "~" + path[len(home) :]
+    return path
 
 
 def _parse_bool(value: Any) -> bool:
@@ -204,7 +212,7 @@ def load_skills(cwd: str | None = None) -> LoadSkillsResult:
                     SkillWarning(
                         skill.path,
                         f'name collision: "{skill.name}" already loaded '
-                        f"from {skill_map[skill.name].path}",
+                        f"from {shorten_path(skill_map[skill.name].path)}",
                     )
                 )
             else:
