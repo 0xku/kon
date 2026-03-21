@@ -1003,14 +1003,16 @@ def _print_exit_message(
     console = Console(highlight=False)
 
     for hint in hints:
-        console.print(f"Hint: [bright_black]{hint}[/bright_black]")
+        console.print(
+            f"[{colors.muted}]Hint:[/{colors.muted}] [{colors.dim}]{hint}[/{colors.dim}]"
+        )
 
     t = colors.dim
-    logo_color = "bright_black"
+    logo_color = colors.dim
     info_lines: list[str] = []
 
     if duration_seconds is not None:
-        info_lines.append(f"[{t}]Elapsed {_format_duration(duration_seconds)}[/{t}]")
+        info_lines.append(f"[{t}]Time {_format_duration(duration_seconds)}[/{t}]")
 
     if file_changes:
         n_files = len(file_changes)
@@ -1023,7 +1025,10 @@ def _print_exit_message(
         )
 
     if session_id:
-        info_lines.append(f"[{t}]kon -r {session_id}[/{t}]")
+        info_lines.append(
+            f"[{colors.muted}]To resume:[/{colors.muted}] "
+            f"[{colors.accent}]kon -r {session_id}[/{colors.accent}]"
+        )
 
     if not info_lines:
         return
