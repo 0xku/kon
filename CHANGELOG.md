@@ -6,6 +6,30 @@ All notable changes to this project will be documented in this file.
 
 - No changes yet.
 
+## 0.3.1 - 2026-03-21
+
+### Added
+
+- Added optional built-in web tools (`web_search`, `web_fetch`) configurable via `--extra-tools` and config - @Meltedd.
+- Added tool permission controls with bash safety analysis - @Meltedd.
+- Added popular built-in themes.
+- Added tool previews in approval prompts.
+- Added run token throughput metrics.
+
+### Changed
+
+- Updated the default config shape to use `ui.theme`, add `tools` and `permissions` sections, and simplify agent loop defaults.
+- Refreshed README/config/local-model docs and clarified custom skill slash commands.
+- Improved plain-text tool call displays, approval UI presentation, and thinking/input styling.
+
+### Fixed
+
+- Fixed session loading to rebuild the agent and persist the session system prompt.
+- Fixed session file handling by tightening session directory permissions and tarfile path filtering.
+- Fixed update-version check behavior and shortened web fetch extraction errors.
+- Fixed collapsed thinking block rendering, exit summary theming, and summary formatting polish.
+- Fixed skill collision warning path formatting to display consistently.
+
 ## 0.3.0 - 2026-03-15
 
 ### Added
