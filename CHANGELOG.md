@@ -6,6 +6,22 @@ All notable changes to this project will be documented in this file.
 
 - No changes yet.
 
+## 0.3.2 - 2026-03-22
+
+### Added
+
+- Added a `collapse_thinking` config flag to control thinking block display.
+- Added a Ghostty theme preview script.
+
+### Changed
+
+- Improved theme and model picker indicators.
+- Refactored tool display helpers into shared `truncate_text` and `shorten_path` utilities.
+
+### Fixed
+
+- Fixed duplicate skill warnings coming from the home directory.
+
 ## 0.3.1 - 2026-03-21
 
 ### Added
