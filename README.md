@@ -438,54 +438,6 @@ More notes, tested models, and examples live in [docs/local-models.md](docs/loca
 
 ---
 
-### Configuration
-
-Kon stores config at:
-
-```text
-~/.kon/config.toml
-```
-
-It is created automatically on first run, and old schemas are migrated forward automatically when needed.
-
-Users are recommended to customize this config based on their model, workflow, safety preferences, and UI taste.
-
-Here is the full config shape:
-
-```toml
-[meta]
-config_version = 3
-
-[llm]
-default_provider = "openai-codex"
-default_model = "gpt-5.4"
-default_base_url = ""
-default_thinking_level = "high"
-tool_call_idle_timeout_seconds = 180
-
-[llm.system_prompt]
-git_context = true
-content = """You are an expert coding assistant called Kon.
-..."""
-
-[compaction]
-on_overflow = "continue"
-buffer_tokens = 20000
-
-[agent]
-max_turns = 500
-default_context_window = 200000
-
-[tools]
-extra = ["web_search", "web_fetch"]
-
-[ui]
-theme = "gruvbox-dark"
-
-[permissions]
-mode = "prompt"
-```
-
 ### Permissions
 
 Kon supports two permission modes:
