@@ -160,6 +160,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self._ctrl_d_timer = None
         self._cancel_event: asyncio.Event | None = None
         self._interrupt_requested = False
+        self._pending_session_switch_id: str | None = None
         self._abort_shown = False
         self._current_block_type: str | None = None
         self._approval_future: asyncio.Future[ApprovalResponse] | None = None
@@ -670,17 +671,17 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
 
     def action_interrupt_agent(self) -> None:
         if self._is_running:
-            self._request_interrupt(show_message=True)
+            self._request_interrupt()
 
-    def _request_interrupt(self, show_message: bool) -> None:
+    def _request_interrupt(self, status_message: str | None = "Interrupting...") -> None:
         if not self._is_running:
             return
 
         self._interrupt_requested = True
 
-        if show_message:
+        if status_message:
             chat = self.query_one("#chat-log", ChatLog)
-            chat.show_status("Interrupting...")
+            chat.show_status(status_message)
 
         if self._cancel_event:
             self._cancel_event.set()
@@ -733,6 +734,10 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         if not event.target_session_id:
             return
         event.stop()
+        if self._is_running:
+            self._pending_session_switch_id = event.target_session_id
+            self._request_interrupt(status_message="Interrupting before handoff...")
+            return
         self.run_worker(self._load_session_by_id(event.target_session_id), exclusive=True)
 
     def _clear_approval_state(self) -> None:
@@ -1030,6 +1035,12 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             break
 
         self._is_running = False
+
+        if self._pending_session_switch_id:
+            session_id = self._pending_session_switch_id
+            self._pending_session_switch_id = None
+            self.run_worker(self._load_session_by_id(session_id), exclusive=True)
+
         self._show_pending_update_notice_if_idle()
 
 
