@@ -34,6 +34,7 @@ from enum import StrEnum
 from pydantic import ValidationError
 
 from . import config as kon_config
+from .async_utils import OperationCancelledError, await_or_cancel
 from .core.types import (
     AssistantMessage,
     FileChanges,
@@ -220,19 +221,18 @@ async def _execute_tool(
 async def _await_approval(
     future: asyncio.Future[ApprovalResponse], cancel_event: asyncio.Event | None
 ) -> ApprovalResponse | None:
-    if cancel_event is None:
-        return await future
-    if cancel_event.is_set():
+    try:
+        return await await_or_cancel(future, cancel_event)
+    except OperationCancelledError:
         return None
-    cancel_task = asyncio.create_task(cancel_event.wait())
-    done, pending = await asyncio.wait({future, cancel_task}, return_when=asyncio.FIRST_COMPLETED)
-    for task in pending:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
-    if future in done:
-        return future.result()
-    return None
+
+
+async def _sleep_or_cancel(delay: float, cancel_event: asyncio.Event | None) -> bool:
+    try:
+        await await_or_cancel(asyncio.create_task(asyncio.sleep(delay)), cancel_event)
+        return False
+    except OperationCancelledError:
+        return True
 
 
 async def run_single_turn(
@@ -257,6 +257,16 @@ async def run_single_turn(
     stream: LLMStream | None = None
 
     for attempt_num, delay in enumerate([*delays, None]):
+        if cancel_event and cancel_event.is_set():
+            yield InterruptedEvent(message="Interrupted by user")
+            yield TurnEndEvent(
+                turn=turn,
+                assistant_message=None,
+                tool_results=[],
+                stop_reason=StopReason.INTERRUPTED,
+            )
+            return
+
         try:
             stream = await provider.stream(messages, system_prompt=system_prompt, tools=tool_defs)
             break  # Success, exit retry loop
@@ -265,7 +275,15 @@ async def run_single_turn(
                 yield RetryEvent(
                     attempt=attempt_num + 1, total_attempts=len(delays), delay=delay, error=str(e)
                 )
-                await asyncio.sleep(delay)
+                if await _sleep_or_cancel(delay, cancel_event):
+                    yield InterruptedEvent(message="Interrupted by user")
+                    yield TurnEndEvent(
+                        turn=turn,
+                        assistant_message=None,
+                        tool_results=[],
+                        stop_reason=StopReason.INTERRUPTED,
+                    )
+                    return
                 continue
             yield ErrorEvent(error=str(e))  # Not retryable or retries exhausted
             yield TurnEndEvent(

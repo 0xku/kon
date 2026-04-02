@@ -1,41 +1,19 @@
 import asyncio
 import os
 from contextlib import suppress
-from typing import TypeVar
 
-T = TypeVar("T")
+from ..async_utils import OperationCancelledError, await_or_cancel
 
 
 class ToolCancelledError(Exception):
     pass
 
 
-async def await_task_or_cancel(work: asyncio.Task[T], cancel_event: asyncio.Event | None) -> T:
-    if not cancel_event:
-        return await work
-
-    cancel = asyncio.create_task(cancel_event.wait())
+async def await_task_or_cancel(work: asyncio.Task, cancel_event: asyncio.Event | None):
     try:
-        done, pending = await asyncio.wait([work, cancel], return_when=asyncio.FIRST_COMPLETED)
-
-        for task in pending:
-            task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
-
-        if cancel in done and cancel_event.is_set():
-            if not work.done():
-                work.cancel()
-                with suppress(asyncio.CancelledError):
-                    await work
-            raise ToolCancelledError
-
-        return work.result()
-    finally:
-        if not cancel.done():
-            cancel.cancel()
-            with suppress(asyncio.CancelledError):
-                await cancel
+        return await await_or_cancel(work, cancel_event)
+    except OperationCancelledError as e:
+        raise ToolCancelledError from e
 
 
 async def communicate_or_cancel(

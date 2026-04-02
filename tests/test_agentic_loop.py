@@ -558,6 +558,30 @@ async def test_run_single_turn_pre_cancelled(sample_messages, tools):
     assert events[1].assistant_message is None
 
 
+@pytest.mark.asyncio
+async def test_run_single_turn_cancel_during_retry_backoff(sample_messages, tools):
+    cancel_event = asyncio.Event()
+    provider = MockProvider(scenario="retry_exhausted")
+    events = []
+
+    async def cancel_soon():
+        await asyncio.sleep(0.01)
+        cancel_event.set()
+
+    asyncio.create_task(cancel_soon())
+
+    async for event in run_single_turn(
+        provider, sample_messages, tools, turn=1, cancel_event=cancel_event, retry_delays=[1, 1, 1]
+    ):
+        events.append(event)
+
+    retry_events = [e for e in events if isinstance(e, RetryEvent)]
+    assert len(retry_events) == 1
+    assert isinstance(events[-2], InterruptedEvent)
+    assert isinstance(events[-1], TurnEndEvent)
+    assert events[-1].stop_reason == StopReason.INTERRUPTED
+
+
 # ============================================================================
 # Cancellation tests
 # ============================================================================
