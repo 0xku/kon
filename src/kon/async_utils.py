@@ -1,8 +1,6 @@
 import asyncio
 from contextlib import suppress
-from typing import Any, TypeVar
-
-T = TypeVar("T")
+from typing import Any
 
 
 class OperationCancelledError(Exception):
@@ -17,7 +15,7 @@ async def cancel_and_await(task: asyncio.Future[Any]) -> None:
         await task
 
 
-async def await_or_cancel(work: asyncio.Future[T], cancel_event: asyncio.Event | None) -> T:
+async def await_or_cancel[T](work: asyncio.Future[T], cancel_event: asyncio.Event | None) -> T:
     if not cancel_event:
         return await work
 
