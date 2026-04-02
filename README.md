@@ -230,8 +230,9 @@ Kon is built around a terminal UI that stays simple but practical.
 | --- | --- |
 | File reference | Type `@` to fuzzy-search files and folders in the current project |
 | Path completion | Press **Tab** to complete paths like `./`, `../`, `~`, quoted paths, and absolute paths |
-| Queued prompts | You can submit follow-up prompts while the agent is still running |
-| Queue limit | Up to **5** queued prompts |
+| Queued prompts | Press **Enter** while the agent is running to queue a follow-up prompt |
+| Steer queue | Press **Alt+Enter** to queue a steer message that is processed before normal queued prompts |
+| Queue limit | Up to **5** normal queued prompts and **5** steer messages |
 | Model switching | Use `/model` to switch interactively |
 | Session browsing | Use `/resume` to browse prior sessions |
 
