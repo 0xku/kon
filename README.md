@@ -460,9 +460,8 @@ Kon depends on a few fast CLI tools for file discovery and search:
 
 - **[`fd`](https://github.com/sharkdp/fd)** - required for fast file discovery
 - **[`ripgrep`](https://github.com/BurntSushi/ripgrep)** - required for fast content search
-- **[`eza`](https://github.com/eza-community/eza)** - optional
 
-If `fd` or `rg` are missing, Kon can download them automatically. `eza` is optional and mainly useful for cleaner, `.gitignore`-aware directory listings.
+If `fd` or `rg` are missing, Kon can download them automatically.
 
 ---
 

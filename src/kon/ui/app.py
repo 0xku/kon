@@ -2,7 +2,6 @@ import asyncio
 import glob
 import os
 import shutil
-import sys
 import time
 import tomllib
 from collections import deque
@@ -482,11 +481,6 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         if not self._fd_path and paths.get("fd"):
             self._fd_path = paths["fd"]
             self.query_one("#input-box", InputBox).set_fd_path(self._fd_path)
-
-        if not paths.get("eza") and sys.platform == "darwin":
-            self._exit_hints.append(
-                "Install eza for more token-efficient directory listings (brew install eza)"
-            )
 
     async def _check_for_updates(self) -> None:
         latest = await get_newer_pypi_version(_PYPI_PACKAGE_NAME, VERSION)

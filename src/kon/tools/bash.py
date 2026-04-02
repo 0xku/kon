@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 
 from kon import config
 
-from ..config import AVAILABLE_BINARIES
 from ..core.types import ToolResult
 from .base import BaseTool
 
@@ -55,23 +54,6 @@ def _sanitize_output(text: str) -> str:
     text = text.replace("\r\n", "\n").replace("\r", "")
     text = "".join(c for c in text if c >= " " or c in "\t\n")
     return text
-
-
-def _transform_command(command: str) -> str:
-    """
-    Transform command if a better alternative is available.
-    Currently only transforms 'ls' to 'eza' if eza is installed.
-    """
-    stripped = command.strip()
-    if not (stripped == "ls" or stripped.startswith("ls ")):
-        return command
-
-    if "eza" not in AVAILABLE_BINARIES:
-        return command
-
-    # Replace 'ls' with 'eza --git-ignore', preserving any following arguments
-    # We only match 'ls' as a word (not part of another command)
-    return re.sub(r"\bls\b", "eza --git-ignore", command, count=1)
 
 
 class TruncationResult:
@@ -206,7 +188,7 @@ class BashTool(BaseTool):
             msg = "Command cannot be empty"
             return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
 
-        command = _transform_command(params.command)
+        command = params.command
 
         cwd = Path.cwd()
         if not cwd.exists():

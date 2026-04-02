@@ -15,7 +15,7 @@ import aiohttp
 
 from .config import CONFIG_DIR_NAME
 
-ToolName = Literal["fd", "rg", "eza"]
+ToolName = Literal["fd", "rg"]
 
 _BIN_DIR = Path.home() / CONFIG_DIR_NAME / "bin"
 
@@ -60,21 +60,9 @@ class _RgConfig(_ToolConfig):
         return None
 
 
-class _EzaConfig(_ToolConfig):
-    def get_asset_name(self, version: str, plat: str, arch: str) -> str | None:
-        if plat == "linux":
-            arch_str = "aarch64" if arch == "arm64" else "x86_64"
-            return f"eza_{arch_str}-unknown-linux-gnu.tar.gz"
-        elif plat == "win32":
-            return "eza.exe_x86_64-pc-windows-gnu.zip"
-        # No macOS binary published by eza-community
-        return None
-
-
 _TOOLS: dict[ToolName, _ToolConfig] = {
     "fd": _FdConfig(name="fd", repo="sharkdp/fd", binary_name="fd", tag_prefix="v"),
     "rg": _RgConfig(name="ripgrep", repo="BurntSushi/ripgrep", binary_name="rg", tag_prefix=""),
-    "eza": _EzaConfig(name="eza", repo="eza-community/eza", binary_name="eza", tag_prefix="v"),
 }
 
 
@@ -223,6 +211,6 @@ async def ensure_tools(
     tools: list[ToolName] | None = None, silent: bool = False
 ) -> dict[ToolName, str | None]:
     if tools is None:
-        tools = ["fd", "rg", "eza"]
+        tools = ["fd", "rg"]
     results = await asyncio.gather(*(ensure_tool(t, silent=silent) for t in tools))
     return dict(zip(tools, results, strict=True))

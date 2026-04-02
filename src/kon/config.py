@@ -120,10 +120,6 @@ class _BinariesConfig:
     def fd(self) -> bool:
         return "fd" in self._binaries
 
-    @property
-    def eza(self) -> bool:
-        return "eza" in self._binaries
-
 
 class Config:
     def __init__(self, data: dict[str, Any]) -> None:
@@ -227,7 +223,7 @@ def consume_config_warnings() -> list[str]:
 
 
 def _detect_available_binaries() -> set[str]:
-    binaries = {"rg", "fd", "eza"}
+    binaries = {"rg", "fd"}
     available = set()
     bin_dir = Path.home() / CONFIG_DIR_NAME / "bin"
 
