@@ -12,6 +12,7 @@ Discovery locations:
 import os
 import re
 from dataclasses import dataclass
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,7 @@ class Skill:
     description: str
     register_cmd: bool = False
     cmd_info: str = ""
+    bundled: bool = False
 
 
 @dataclass
@@ -226,6 +228,66 @@ def load_skills(cwd: str | None = None) -> LoadSkillsResult:
         add_skills(_load_skills_from_dir(global_skills_dir))
 
     return LoadSkillsResult(skills=list(skill_map.values()), warnings=all_warnings)
+
+
+def load_builtin_cmd_skills() -> LoadSkillsResult:
+    try:
+        builtin_resource = resources.files("kon").joinpath("builtin_skills")
+        with resources.as_file(builtin_resource) as builtin_root:
+            result = _load_skills_from_dir(builtin_root)
+    except Exception:
+        return LoadSkillsResult(skills=[], warnings=[])
+    return LoadSkillsResult(
+        skills=[
+            Skill(
+                path=skill.path,
+                name=skill.name,
+                description=skill.description,
+                register_cmd=skill.register_cmd,
+                cmd_info=skill.cmd_info,
+                bundled=True,
+            )
+            for skill in result.skills
+        ],
+        warnings=result.warnings,
+    )
+
+
+def strip_frontmatter(content: str) -> str:
+    if not content.startswith("---"):
+        return content.strip()
+    end_match = re.search(r"\n---\s*\n", content[3:])
+    if not end_match:
+        return content.strip()
+    return content[end_match.end() + 3 :].strip()
+
+
+def render_skill_prompt(skill: Skill, query: str) -> str:
+    try:
+        content = Path(skill.path).read_text(encoding="utf-8")
+    except Exception:
+        return _build_fallback_skill_prompt(skill.description, query)
+    template = strip_frontmatter(content)
+    rendered = template.replace("$ARGUMENTS", query)
+    return rendered.strip()
+
+
+def _build_fallback_skill_prompt(description: str, query: str) -> str:
+    query = query.strip()
+    if not query:
+        return description
+    return f"{description}\n\n{query}"
+
+
+def merge_registered_skills(primary: list[Skill], secondary: list[Skill]) -> list[Skill]:
+    seen = {skill.name for skill in primary}
+    merged = list(primary)
+    for skill in secondary:
+        if skill.name in seen:
+            continue
+        merged.append(skill)
+        seen.add(skill.name)
+    return merged
 
 
 def formatted_skills(skills: list[Skill]) -> str:

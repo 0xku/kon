@@ -4,7 +4,11 @@ from kon.context.skills import (
     _parse_frontmatter,
     _validate_skill,
     formatted_skills,
+    load_builtin_cmd_skills,
     load_skills,
+    merge_registered_skills,
+    render_skill_prompt,
+    strip_frontmatter,
 )
 
 
@@ -390,6 +394,61 @@ description: Uses directory fallback
         assert len(result.skills) == 1
         assert result.skills[0].name == "fallback-name"
         assert result.warnings == []
+
+
+class TestBuiltinCommandSkills:
+    def test_loads_builtin_init_skill(self):
+        result = load_builtin_cmd_skills()
+
+        skill = next((s for s in result.skills if s.name == "init"), None)
+        assert skill is not None
+        assert skill.register_cmd is True
+        assert skill.cmd_info == "Guided AGENTS.md setup"
+        assert skill.bundled is True
+        assert skill.path.endswith("src/kon/builtin_skills/init/SKILL.md")
+        assert result.warnings == []
+
+
+class TestBundledSkillPromptRendering:
+    def test_strip_frontmatter(self):
+        content = """---
+name: init
+description: Example
+---
+
+Body here
+"""
+
+        assert strip_frontmatter(content) == "Body here"
+
+    def test_render_skill_prompt_substitutes_arguments(self):
+        skill = next((s for s in load_builtin_cmd_skills().skills if s.name == "init"), None)
+
+        assert skill is not None
+        prompt = render_skill_prompt(skill, "focus on testing")
+
+        assert "Create or update `AGENTS.md` for this repository." in prompt
+        assert "focus on testing" in prompt
+        assert "$ARGUMENTS" not in prompt
+
+
+class TestMergeRegisteredSkills:
+    def test_primary_skills_take_precedence(self):
+        primary = [
+            Skill(name="init", description="Primary", path="/primary/SKILL.md", register_cmd=True)
+        ]
+        secondary = [
+            Skill(
+                name="init", description="Secondary", path="/secondary/SKILL.md", register_cmd=True
+            ),
+            Skill(name="other", description="Other", path="/other/SKILL.md", register_cmd=True),
+        ]
+
+        merged = merge_registered_skills(primary, secondary)
+
+        assert [skill.name for skill in merged] == ["init", "other"]
+        assert merged[0].path == "/primary/SKILL.md"
+        assert merged[1].path == "/other/SKILL.md"
 
 
 class TestFormatSkillsForPrompt:

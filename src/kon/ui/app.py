@@ -17,7 +17,12 @@ from textual.binding import Binding
 from kon import config, consume_config_warnings, update_available_binaries
 from kon.tools_manager import ensure_tools
 
-from ..context.skills import load_skills
+from ..context.skills import (
+    load_builtin_cmd_skills,
+    load_skills,
+    merge_registered_skills,
+    render_skill_prompt,
+)
 from ..core.types import StopReason
 from ..events import (
     AgentEndEvent,
@@ -221,12 +226,16 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self.refresh_css(animate=False)
         self._apply_thinking_level_style(self._thinking_level)
 
+    def _registered_slash_skills(self):
+        skills = self._agent.context.skills if self._agent else load_skills(self._cwd).skills
+        builtin_skills = load_builtin_cmd_skills().skills
+        return merge_registered_skills(skills, builtin_skills)
+
     def _sync_slash_commands(self) -> None:
         input_box = self.query_one("#input-box", InputBox)
         commands = DEFAULT_COMMANDS.copy()
 
-        skills = self._agent.context.skills if self._agent else load_skills(self._cwd).skills
-        for skill in skills:
+        for skill in self._registered_slash_skills():
             if not skill.register_cmd:
                 continue
             cmd_description = skill.cmd_info
@@ -771,11 +780,11 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         skill_prompt: str | None = None
         selected_skill_name = event.selected_skill_name
         highlighted_skill: str | None = None
-        if selected_skill_name and self._agent:
+        if selected_skill_name:
             selected_skill = next(
                 (
                     skill
-                    for skill in self._agent.context.skills
+                    for skill in self._registered_slash_skills()
                     if skill.register_cmd and skill.name == selected_skill_name
                 ),
                 None,
@@ -786,7 +795,11 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                     selected_skill.name, selected_skill.description, skill_query
                 )
                 display_text = skill_prompt
-                query_text = skill_prompt
+                query_text = (
+                    render_skill_prompt(selected_skill, skill_query)
+                    if selected_skill.bundled
+                    else skill_prompt
+                )
                 highlighted_skill = selected_skill.name
 
         if self._is_running:
