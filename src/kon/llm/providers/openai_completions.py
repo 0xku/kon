@@ -1,5 +1,4 @@
 import json
-import os
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any, Literal, cast
@@ -31,7 +30,7 @@ from ...core.types import (
     Usage,
     UserMessage,
 )
-from ..base import BaseProvider, LLMStream, ProviderConfig
+from ..base import BaseProvider, LLMStream, ProviderConfig, resolve_api_key
 from .openai_compat import supports_developer_role
 from .sanitize import sanitize_surrogates
 
@@ -80,13 +79,17 @@ class OpenAICompletionsProvider(BaseProvider):
     def __init__(self, config: ProviderConfig):
         super().__init__(config)
 
-        api_key = (
-            config.api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("ZAI_API_KEY")
+        api_key = resolve_api_key(
+            config.api_key,
+            env_vars=("OPENAI_API_KEY", "ZAI_API_KEY"),
+            base_url=config.base_url,
+            auth_mode=config.openai_compat_auth_mode,
         )
         if not api_key:
             raise ValueError(
                 f"No API key found for {self.name}. "
-                "Set OPENAI_API_KEY or ZAI_API_KEY environment variable."
+                "Set OPENAI_API_KEY or ZAI_API_KEY environment variable, "
+                'or configure llm.auth.openai_compat = "auto"/"none" for local endpoints.'
             )
         self._client = AsyncOpenAI(api_key=api_key, base_url=config.base_url)
         self._compat = _detect_compat(config.provider or "", config.base_url or "")

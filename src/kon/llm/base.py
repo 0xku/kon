@@ -2,10 +2,15 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from ipaddress import ip_address
+from typing import Literal
+from urllib.parse import urlparse
 
 from ..core.types import Message, StreamPart, ToolDefinition, Usage
 
 DEFAULT_THINKING_LEVELS: list[str] = ["none", "low", "medium", "high"]
+LOCAL_API_KEY_PLACEHOLDER = "kon-local"
+AuthMode = Literal["auto", "required", "none"]
 
 ENV_API_KEY_MAP: dict[str, str] = {
     "openai": "OPENAI_API_KEY",
@@ -19,6 +24,52 @@ def get_env_api_key(provider: str) -> str | None:
     return os.environ.get(env_var) if env_var else None
 
 
+def is_local_base_url(base_url: str | None) -> bool:
+    if not base_url:
+        return False
+
+    parsed = urlparse(base_url if "://" in base_url else f"https://{base_url}")
+    hostname = parsed.hostname
+    if hostname is None:
+        return False
+
+    normalized = hostname.lower()
+    if normalized in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}:
+        return True
+    if normalized.endswith(".local"):
+        return True
+
+    try:
+        addr = ip_address(normalized)
+    except ValueError:
+        return False
+
+    return addr.is_loopback or addr.is_private or addr.is_link_local
+
+
+def resolve_api_key(
+    explicit_api_key: str | None,
+    *,
+    env_vars: list[str] | tuple[str, ...] = (),
+    base_url: str | None = None,
+    auth_mode: AuthMode = "required",
+) -> str | None:
+    if explicit_api_key:
+        return explicit_api_key
+
+    for env_var in env_vars:
+        value = os.environ.get(env_var)
+        if value:
+            return value
+
+    if auth_mode == "none":
+        return LOCAL_API_KEY_PLACEHOLDER
+    if auth_mode == "auto" and is_local_base_url(base_url):
+        return LOCAL_API_KEY_PLACEHOLDER
+
+    return None
+
+
 @dataclass
 class ProviderConfig:
     api_key: str | None = None
@@ -29,6 +80,8 @@ class ProviderConfig:
     thinking_level: str = "medium"
     provider: str | None = None
     session_id: str | None = None
+    openai_compat_auth_mode: AuthMode = "auto"
+    anthropic_compat_auth_mode: AuthMode = "auto"
 
 
 class LLMStream(AsyncIterator["StreamPart"]):

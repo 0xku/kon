@@ -265,6 +265,8 @@ class SessionUIMixin:
                         thinking_level=self._thinking_level,
                         provider=provider,
                         session_id=session.id,
+                        openai_compat_auth_mode=self._openai_compat_auth_mode,
+                        anthropic_compat_auth_mode=self._anthropic_compat_auth_mode,
                     )
                     try:
                         self._provider = self._create_provider(restored_model.api, provider_config)

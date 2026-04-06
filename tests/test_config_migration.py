@@ -33,6 +33,8 @@ warning = "#123456"
     assert updated["meta"]["config_version"] == CURRENT_CONFIG_VERSION
     assert updated["ui"]["theme"] == "gruvbox-dark"
     assert "colors" not in updated["ui"]
+    assert updated["llm"]["auth"]["openai_compat"] == "auto"
+    assert updated["llm"]["auth"]["anthropic_compat"] == "auto"
 
     backup_files = list(config_dir.glob("config.toml.bak.*"))
     assert len(backup_files) == 1

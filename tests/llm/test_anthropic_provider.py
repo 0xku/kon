@@ -1,4 +1,6 @@
+import os
 from typing import Any, cast
+from unittest.mock import patch
 
 import pytest
 from anthropic.types import (
@@ -201,3 +203,29 @@ async def test_stream_uses_budget_thinking_for_non_adaptive_models():
 
     kwargs = dummy_messages.calls[0]
     assert kwargs["thinking"] == ThinkingConfigEnabledParam(type="enabled", budget_tokens=8192)
+
+
+def test_anthropic_provider_uses_placeholder_for_local_auto_auth_mode():
+    with patch.dict(os.environ, {}, clear=True):
+        provider = AnthropicProvider(
+            ProviderConfig(
+                model="claude-sonnet-4.6",
+                base_url="http://127.0.0.1:8001",
+                anthropic_compat_auth_mode="auto",
+            )
+        )
+        assert provider._client.api_key == "kon-local"
+
+
+def test_anthropic_provider_requires_key_for_remote_required_mode():
+    with (
+        patch.dict(os.environ, {}, clear=True),
+        pytest.raises(ValueError, match="No API key found"),
+    ):
+        AnthropicProvider(
+            ProviderConfig(
+                model="claude-sonnet-4.6",
+                base_url="https://api.anthropic.com",
+                anthropic_compat_auth_mode="required",
+            )
+        )

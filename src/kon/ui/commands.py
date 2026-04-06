@@ -247,6 +247,8 @@ Extra tools:
                 thinking_level=self._thinking_level,
                 provider=model.provider,
                 session_id=self._session.id if self._session else None,
+                openai_compat_auth_mode=self._openai_compat_auth_mode,
+                anthropic_compat_auth_mode=self._anthropic_compat_auth_mode,
             )
             try:
                 self._provider = self._create_provider(model.api, provider_config)

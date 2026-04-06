@@ -20,9 +20,23 @@ Run a local model using llama-server with the following command:
   -c 65536
 ```
 
-Then start kon:
+Then start Kon for a one-off local session:
 
 ```bash
-kon --model unsloth/Qwen3.5-9B-GGUF --provider openai --base-url http://localhost:5000/v1 --api-key ""
+kon --model unsloth/Qwen3.5-9B-GGUF --provider openai \
+  --base-url http://localhost:5000/v1 \
+  --openai-compat-auth none
+```
+
+If this is your default setup, put it in `~/.kon/config.toml` instead:
+
+```toml
+[llm]
+default_provider = "openai"
+default_model = "unsloth/Qwen3.5-9B-GGUF"
+default_base_url = "http://localhost:5000/v1"
+
+[llm.auth]
+openai_compat = "auto" # or "none" to always inject a placeholder key
 ```
 

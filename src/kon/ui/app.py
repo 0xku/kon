@@ -136,6 +136,8 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         continue_recent: bool = False,
         thinking_level: str | None = None,
         extra_tools: list[str] | None = None,
+        openai_compat_auth_mode: str | None = None,
+        anthropic_compat_auth_mode: str | None = None,
     ):
         super().__init__()
         self.theme = "textual-ansi"
@@ -151,6 +153,10 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self._resume_session = resume_session
         self._continue_recent = continue_recent
         self._thinking_level = thinking_level or config.llm.default_thinking_level
+        self._openai_compat_auth_mode = openai_compat_auth_mode or config.llm.auth.openai_compat
+        self._anthropic_compat_auth_mode = (
+            anthropic_compat_auth_mode or config.llm.auth.anthropic_compat
+        )
         self._is_running = False
         self._last_ctrl_c_time = 0.0
         self._last_ctrl_d_time = 0.0
@@ -353,6 +359,8 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             thinking_level=self._thinking_level,
             provider=self._model_provider,
             session_id=self._session.id if self._session else None,
+            openai_compat_auth_mode=self._openai_compat_auth_mode,
+            anthropic_compat_auth_mode=self._anthropic_compat_auth_mode,
         )
 
         provider_error: str | None = None
@@ -1117,6 +1125,16 @@ def main():
     parser.add_argument("--api-key", "-k", help="API key")
     parser.add_argument("--base-url", "-u", help="Base URL for API")
     parser.add_argument(
+        "--openai-compat-auth",
+        choices=("auto", "required", "none"),
+        help="Auth mode for OpenAI-compatible endpoints",
+    )
+    parser.add_argument(
+        "--anthropic-compat-auth",
+        choices=("auto", "required", "none"),
+        help="Auth mode for Anthropic-compatible endpoints",
+    )
+    parser.add_argument(
         "--continue",
         "-c",
         action="store_true",
@@ -1147,6 +1165,8 @@ def main():
         resume_session=args.resume_session,
         continue_recent=args.continue_recent,
         extra_tools=extra_tools,
+        openai_compat_auth_mode=args.openai_compat_auth,
+        anthropic_compat_auth_mode=args.anthropic_compat_auth,
     )
     app.run()
 

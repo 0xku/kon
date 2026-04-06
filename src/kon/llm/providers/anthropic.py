@@ -39,7 +39,7 @@ from ...core.types import (
     Usage,
     UserMessage,
 )
-from ..base import BaseProvider, LLMStream, ProviderConfig, get_env_api_key
+from ..base import BaseProvider, LLMStream, ProviderConfig, resolve_api_key
 from .sanitize import sanitize_surrogates
 
 THINKING_BUDGET_MAP: dict[str, int] = {
@@ -77,11 +77,17 @@ class AnthropicProvider(BaseProvider):
     def __init__(self, config: ProviderConfig):
         super().__init__(config)
 
-        api_key = config.api_key or get_env_api_key(self.name)
+        api_key = resolve_api_key(
+            config.api_key,
+            env_vars=("ANTHROPIC_API_KEY",),
+            base_url=config.base_url,
+            auth_mode=config.anthropic_compat_auth_mode,
+        )
         if not api_key:
             raise ValueError(
                 f"No API key found for {self.name}. "
-                "Set ANTHROPIC_API_KEY environment variable or pass api_key in config."
+                "Set ANTHROPIC_API_KEY environment variable or pass api_key in config, "
+                'or configure llm.auth.anthropic_compat = "auto"/"none" for local endpoints.'
             )
 
         self._client = AsyncAnthropic(api_key=api_key, base_url=config.base_url)

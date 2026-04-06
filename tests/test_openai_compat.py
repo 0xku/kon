@@ -1,4 +1,6 @@
-from kon.llm.base import ProviderConfig
+import pytest
+
+from kon.llm.base import ProviderConfig, is_local_base_url, resolve_api_key
 from kon.llm.providers.openai_codex_responses import OpenAICodexResponsesProvider
 from kon.llm.providers.openai_compat import supports_developer_role
 from kon.llm.providers.openai_completions import _detect_compat
@@ -85,3 +87,48 @@ def test_openai_codex_request_omits_prompt_cache_fields_without_session() -> Non
     assert "prompt_cache_key" not in body
     assert "session_id" not in headers
     assert "conversation_id" not in headers
+
+
+@pytest.mark.parametrize(
+    ("base_url", "expected"),
+    [
+        ("http://127.0.0.1:8080/v1", True),
+        ("http://localhost:8080/v1", True),
+        ("http://192.168.1.10:8080/v1", True),
+        ("https://api.openai.com/v1", False),
+        (None, False),
+    ],
+)
+def test_is_local_base_url(base_url: str | None, expected: bool) -> None:
+    assert is_local_base_url(base_url) is expected
+
+
+def test_resolve_api_key_uses_placeholder_for_local_auto(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert (
+        resolve_api_key(
+            None,
+            env_vars=("OPENAI_API_KEY",),
+            base_url="http://127.0.0.1:8080/v1",
+            auth_mode="auto",
+        )
+        == "kon-local"
+    )
+
+
+def test_resolve_api_key_requires_key_for_remote_auto(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert (
+        resolve_api_key(
+            None,
+            env_vars=("OPENAI_API_KEY",),
+            base_url="https://api.openai.com/v1",
+            auth_mode="auto",
+        )
+        is None
+    )
+
+
+def test_resolve_api_key_uses_placeholder_for_none_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert resolve_api_key(None, env_vars=("OPENAI_API_KEY",), auth_mode="none") == "kon-local"

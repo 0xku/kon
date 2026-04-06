@@ -1,5 +1,5 @@
 [meta]
-config_version = 3
+config_version = 4
 
 [llm]
 default_provider = "openai-codex" # "zhipu", "github-copilot", "openai-codex"
@@ -11,6 +11,14 @@ default_thinking_level = "high"
 # Abort a tool call if it stays idle for this long during a turn.
 # Helps prevent stalled tool executions from hanging the agent loop.
 tool_call_idle_timeout_seconds = 180
+
+[llm.auth]
+# Auth policy for OpenAI-compatible and Anthropic-compatible endpoints.
+# "auto" injects a placeholder key for local/self-hosted endpoints when no key is set.
+# "required" keeps strict API key requirements.
+# "none" always injects a placeholder key for that protocol family.
+openai_compat = "auto" # "auto", "required", or "none"
+anthropic_compat = "auto" # "auto", "required", or "none"
 
 [llm.system_prompt]
 git_context = true

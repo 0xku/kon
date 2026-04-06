@@ -18,6 +18,7 @@ from .themes import ColorsConfig, get_theme, get_theme_ids
 CONFIG_DIR_NAME: str = ".kon"
 
 OnOverflowMode = Literal["continue", "pause"]
+AuthMode = Literal["auto", "required", "none"]
 
 
 # =================================================================================================
@@ -63,6 +64,11 @@ class SystemPromptConfig(BaseModel):
     git_context: bool = False
 
 
+class AuthConfig(BaseModel):
+    openai_compat: AuthMode = "auto"
+    anthropic_compat: AuthMode = "auto"
+
+
 class LLMConfig(BaseModel):
     default_provider: str
     default_model: str
@@ -70,6 +76,7 @@ class LLMConfig(BaseModel):
     default_thinking_level: str
     system_prompt: SystemPromptConfig
     tool_call_idle_timeout_seconds: float = 180
+    auth: AuthConfig = AuthConfig()
 
 
 class CompactionConfig(BaseModel):
@@ -282,6 +289,29 @@ def _migrate_v2_to_v3(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v3_to_v4(data: dict[str, Any]) -> dict[str, Any]:
+    migrated = Config._apply_legacy_key_shims(data)
+    llm = migrated.get("llm")
+    if not isinstance(llm, dict):
+        llm = {}
+        migrated["llm"] = llm
+
+    auth = llm.get("auth")
+    if not isinstance(auth, dict):
+        auth = {}
+        llm["auth"] = auth
+
+    auth.setdefault("openai_compat", "auto")
+    auth.setdefault("anthropic_compat", "auto")
+
+    meta = migrated.get("meta")
+    if not isinstance(meta, dict):
+        migrated["meta"] = {"config_version": 4}
+    else:
+        meta["config_version"] = 4
+    return migrated
+
+
 def _migrate_config_data(data: dict[str, Any]) -> tuple[dict[str, Any], int, int, bool]:
     original = deepcopy(data)
     current_version = _get_config_version(original)
@@ -299,6 +329,10 @@ def _migrate_config_data(data: dict[str, Any]) -> tuple[dict[str, Any], int, int
         if current_version == 2:
             migrated = _migrate_v2_to_v3(migrated)
             current_version = 3
+            continue
+        if current_version == 3:
+            migrated = _migrate_v3_to_v4(migrated)
+            current_version = 4
             continue
         break
 

@@ -149,7 +149,7 @@ Here is the full config shape:
 
 ```toml
 [meta]
-config_version = 3
+config_version = 4
 
 [llm]
 default_provider = "openai-codex"
@@ -157,6 +157,10 @@ default_model = "gpt-5.4"
 default_base_url = ""
 default_thinking_level = "high"
 tool_call_idle_timeout_seconds = 180
+
+[llm.auth]
+openai_compat = "auto"
+anthropic_compat = "auto"
 
 [llm.system_prompt]
 git_context = true
@@ -420,20 +424,7 @@ kon --provider openai --model some-model --api-key "$OPENAI_API_KEY"
 
 ### Local models
 
-Kon works well with local models served through an OpenAI-compatible endpoint.
-
-Example with `llama-server`:
-
-```bash
-./llama-server -m <models-dir>/GLM-4.7-Flash-GGUF/GLM-4.7-Flash-Q4_K_M.gguf \
-  -n 8192 \
-  -c 64000
-
-kon --model zai-org/glm-4.7-flash \
-  --provider openai \
-  --base-url http://localhost:8080/v1 \
-  --api-key ""
-```
+Kon works well with local models served through an OpenAI-compatible endpoint. For one-off launches, you can force unauthenticated local behavior with `--openai-compat-auth none` or `--anthropic-compat-auth none`. To make that persistent across sessions, set `[llm.auth] openai_compat = "auto"|"none"` and/or `anthropic_compat = "auto"|"none"` in `~/.kon/config.toml`.
 
 More notes, tested models, and examples live in [docs/local-models.md](docs/local-models.md).
 
