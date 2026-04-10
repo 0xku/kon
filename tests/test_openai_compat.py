@@ -1,9 +1,11 @@
+from typing import Any, cast
+
 import pytest
 
 from kon.llm.base import ProviderConfig, is_local_base_url, resolve_api_key
 from kon.llm.providers.openai_codex_responses import OpenAICodexResponsesProvider
 from kon.llm.providers.openai_compat import supports_developer_role
-from kon.llm.providers.openai_completions import _detect_compat
+from kon.llm.providers.openai_completions import OpenAICompletionsProvider, _detect_compat
 from kon.llm.providers.openai_responses import OpenAIResponsesProvider
 
 
@@ -24,6 +26,111 @@ def test_detect_compat_disables_developer_role_for_local_api() -> None:
 
     assert compat.supports_developer_role is False
     assert compat.supports_reasoning_effort is True
+
+
+def test_detect_compat_uses_llama_gemma_for_local_gemma_models() -> None:
+    compat = _detect_compat(
+        "openai", "http://127.0.0.1:1234/v1", "unsloth/gemma-4-26B-A4B-it-GGUF"
+    )
+
+    assert compat.supports_developer_role is False
+    assert compat.supports_reasoning_effort is False
+    assert compat.thinking_format == "llama_gemma"
+
+
+def test_openai_completions_prefixes_think_token_for_local_gemma() -> None:
+    provider = OpenAICompletionsProvider(
+        ProviderConfig(
+            api_key="test-key",
+            base_url="http://127.0.0.1:1234/v1",
+            model="unsloth/gemma-4-26B-A4B-it-GGUF",
+            provider="openai",
+            thinking_level="medium",
+        )
+    )
+
+    messages = provider._convert_messages([], "You are helpful", provider._compat)
+
+    assert messages[0]["role"] == "system"
+    assert messages[0]["content"] == "<|think|>You are helpful"
+
+
+def test_openai_completions_does_not_prefix_think_token_when_thinking_disabled() -> None:
+    provider = OpenAICompletionsProvider(
+        ProviderConfig(
+            api_key="test-key",
+            base_url="http://127.0.0.1:1234/v1",
+            model="unsloth/gemma-4-26B-A4B-it-GGUF",
+            provider="openai",
+            thinking_level="none",
+        )
+    )
+
+    messages = provider._convert_messages([], "You are helpful", provider._compat)
+
+    assert messages[0]["role"] == "system"
+    assert messages[0]["content"] == "You are helpful"
+
+
+def test_openai_completions_uses_developer_without_think_prefix_for_openai_api() -> None:
+    provider = OpenAICompletionsProvider(
+        ProviderConfig(
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            model="gpt-5",
+            provider="openai",
+            thinking_level="medium",
+        )
+    )
+
+    messages = provider._convert_messages([], "You are helpful", provider._compat)
+
+    assert messages[0]["role"] == "developer"
+    assert messages[0]["content"] == "You are helpful"
+
+
+class _EmptyAsyncIterator:
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        raise StopAsyncIteration
+
+
+class _DummyChatCompletions:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return _EmptyAsyncIterator()
+
+
+@pytest.mark.asyncio
+async def test_openai_completions_sends_enable_thinking_for_local_gemma() -> None:
+    provider = OpenAICompletionsProvider(
+        ProviderConfig(
+            api_key="test-key",
+            base_url="http://127.0.0.1:1234/v1",
+            model="unsloth/gemma-4-26B-A4B-it-GGUF",
+            provider="openai",
+            thinking_level="medium",
+        )
+    )
+    dummy_chat = _DummyChatCompletions()
+    provider._client = cast(
+        Any,
+        type("DummyClient", (), {"chat": type("DummyChat", (), {"completions": dummy_chat})()})(),
+    )
+
+    stream = await provider._stream_impl(messages=[], system_prompt="You are helpful")
+    async for _ in stream:
+        pass
+
+    kwargs = dummy_chat.calls[0]
+    assert kwargs["extra_body"] == {"enable_thinking": True}
+    assert "reasoning_effort" not in kwargs
+    assert kwargs["messages"][0]["content"] == "<|think|>You are helpful"
 
 
 def test_openai_responses_uses_system_for_local_api() -> None:

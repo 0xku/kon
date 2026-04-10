@@ -30,7 +30,7 @@ from ...core.types import (
     Usage,
     UserMessage,
 )
-from ..base import BaseProvider, LLMStream, ProviderConfig, resolve_api_key
+from ..base import BaseProvider, LLMStream, ProviderConfig, is_local_base_url, resolve_api_key
 from .openai_compat import supports_developer_role
 from .sanitize import sanitize_surrogates
 
@@ -41,12 +41,13 @@ class OpenAICompletionsCompat:
     supports_developer_role: bool = True
     supports_reasoning_effort: bool = True
     max_tokens_field: Literal["max_tokens", "max_completion_tokens"] = "max_completion_tokens"
-    thinking_format: Literal["openai", "zai", "qwen"] = "openai"
+    thinking_format: Literal["openai", "zai", "qwen", "llama_gemma"] = "openai"
 
 
-def _detect_compat(provider: str, base_url: str) -> OpenAICompletionsCompat:
+def _detect_compat(provider: str, base_url: str, model: str = "") -> OpenAICompletionsCompat:
     normalized_provider = provider.lower()
     normalized_base_url = base_url.lower()
+    normalized_model = model.lower()
     is_zai = (
         normalized_provider == "zai"
         or normalized_provider == "zhipu"
@@ -59,6 +60,13 @@ def _detect_compat(provider: str, base_url: str) -> OpenAICompletionsCompat:
             supports_developer_role=False,
             supports_reasoning_effort=False,
             thinking_format="zai",
+        )
+
+    if is_local_base_url(base_url) and "gemma" in normalized_model:
+        return OpenAICompletionsCompat(
+            supports_developer_role=supports_developer_role(provider, base_url),
+            supports_reasoning_effort=False,
+            thinking_format="llama_gemma",
         )
 
     return OpenAICompletionsCompat(
@@ -92,7 +100,9 @@ class OpenAICompletionsProvider(BaseProvider):
                 'or configure llm.auth.openai_compat = "auto"/"none" for local endpoints.'
             )
         self._client = AsyncOpenAI(api_key=api_key, base_url=config.base_url)
-        self._compat = _detect_compat(config.provider or "", config.base_url or "")
+        self._compat = _detect_compat(
+            config.provider or "", config.base_url or "", config.model or ""
+        )
 
     async def _stream_impl(
         self,
@@ -138,7 +148,7 @@ class OpenAICompletionsProvider(BaseProvider):
         if compat.thinking_format == "zai":
             if thinking_level and thinking_level != "none":
                 extra_body["thinking"] = {"type": "enabled"}
-        elif compat.thinking_format == "qwen":
+        elif compat.thinking_format in {"qwen", "llama_gemma"}:
             extra_body["enable_thinking"] = bool(thinking_level and thinking_level != "none")
         elif (
             self.supports_reasoning_effort
@@ -238,11 +248,16 @@ class OpenAICompletionsProvider(BaseProvider):
 
         if system_prompt:
             role = "developer" if (compat and compat.supports_developer_role) else "system"
+            prompt_content = sanitize_surrogates(system_prompt)
+            if (
+                compat
+                and compat.thinking_format == "llama_gemma"
+                and self.config.thinking_level != "none"
+                and not prompt_content.startswith("<|think|>")
+            ):
+                prompt_content = "<|think|>" + prompt_content
             result.append(
-                cast(
-                    ChatCompletionMessageParam,
-                    {"role": role, "content": sanitize_surrogates(system_prompt)},
-                )
+                cast(ChatCompletionMessageParam, {"role": role, "content": prompt_content})
             )
 
         pending_images: list[ImageContent] = []
