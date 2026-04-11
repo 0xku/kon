@@ -200,6 +200,18 @@ These are enabled by default:
 
 This is the core experience: small, predictable, and enough for most coding tasks.
 
+### Shell command input
+
+Kon supports direct shell command execution from the input box. Simply prefix your command with `!`:
+
+```bash
+!ls -la
+!git status
+!python -m pytest tests/
+```
+
+This provides a quick way to run commands without switching to a separate terminal.
+
 ### Extra tools
 
 Kon also ships optional built-in tools you can turn on when needed:
@@ -239,6 +251,7 @@ Kon is built around a terminal UI that stays simple but practical.
 | Queue limit | Up to **5** normal queued prompts and **5** steer messages |
 | Model switching | Use `/model` to switch interactively |
 | Session browsing | Use `/resume` to browse prior sessions |
+| Shell commands | Type `!` to execute shell commands directly from the input box |
 
 ### Slash commands
 
