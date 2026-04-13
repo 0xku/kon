@@ -405,7 +405,7 @@ class TestBuiltinCommandSkills:
         assert skill.register_cmd is True
         assert skill.cmd_info == "Guided AGENTS.md setup"
         assert skill.bundled is True
-        assert skill.path.endswith("src/kon/builtin_skills/init/SKILL.md")
+        assert skill.path.endswith("kon/builtin_skills/init/SKILL.md")
         assert result.warnings == []
 
 
