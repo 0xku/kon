@@ -104,7 +104,10 @@ class TestShellCommand:
             assert call_args[1]["call_msg"] == "Executing: echo hello"
             assert call_args[1]["icon"] == "!"
             assert call_args[1]["tool_id"].startswith("manual-")
-            mock_bash_tool_instance.execute.assert_called_once_with({"command": "echo hello"})
+            mock_bash_tool_instance.execute.assert_called_once()
+            execute_call_args = mock_bash_tool_instance.execute.call_args
+            assert execute_call_args[0][0] == {"command": "echo hello"}
+            assert "cancel_event" in execute_call_args[1]
             # Check that set_tool_result was called with correct parameters
             mock_chat_log.set_tool_result.assert_called_once()
             result_call_args = mock_chat_log.set_tool_result.call_args
@@ -138,7 +141,10 @@ class TestShellCommand:
             assert call_args[1]["call_msg"] == "Executing: bad command"
             assert call_args[1]["icon"] == "!"
             assert call_args[1]["tool_id"].startswith("manual-")
-            mock_bash_tool_instance.execute.assert_called_once_with({"command": "bad command"})
+            mock_bash_tool_instance.execute.assert_called_once()
+            execute_call_args = mock_bash_tool_instance.execute.call_args
+            assert execute_call_args[0][0] == {"command": "bad command"}
+            assert "cancel_event" in execute_call_args[1]
             # Check that set_tool_result was called with correct parameters
             mock_chat_log.set_tool_result.assert_called_once()
             result_call_args = mock_chat_log.set_tool_result.call_args

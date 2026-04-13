@@ -870,7 +870,9 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         )
 
         try:
-            result: ToolResult = await bash_tool.execute(bash_tool.params(command=command))
+            result: ToolResult = await bash_tool.execute(
+                bash_tool.params(command=command), cancel_event=self._cancel_event
+            )
             chat.set_tool_result(
                 tool_id=tool_call_id,
                 ui_summary=result.ui_summary,
@@ -879,10 +881,140 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                 markup=False,
             )
 
-            if add_to_history and self._session:
+            if add_to_history and self._session and self._agent:
                 combined_output = result.result or ""
                 history_content = f"Ran shell command:{command}\nOutput:\n{combined_output}"
                 self._session.append_message(UserMessage(content=history_content))
+
+                # Send to LLM for response
+                status.set_status("waiting for response")
+                self._interrupt_requested = False
+
+                try:
+                    async for event in self._agent.run(
+                        history_content, cancel_event=self._cancel_event
+                    ):
+                        match event:
+                            case AgentStartEvent():
+                                pass
+
+                            case TurnStartEvent():
+                                pass
+
+                            case ThinkingStartEvent():
+                                if self._current_block_type != "thinking":
+                                    if self._current_block_type:
+                                        chat.end_block()
+                                    block = chat.start_thinking()
+                                    if self._hide_thinking:
+                                        block.add_class("-hidden")
+                                    self._current_block_type = "thinking"
+
+                            case ThinkingDeltaEvent(delta=d):
+                                await chat.append_to_current(d)
+
+                            case ThinkingEndEvent():
+                                pass
+
+                            case TextStartEvent():
+                                if self._current_block_type != "content":
+                                    if self._current_block_type:
+                                        chat.end_block()
+                                    chat.start_content()
+                                    self._current_block_type = "content"
+
+                            case TextDeltaEvent(delta=d):
+                                await chat.append_to_current(d)
+
+                            case TextEndEvent():
+                                pass
+
+                            case ToolStartEvent(tool_call_id=id, tool_name=name):
+                                if self._current_block_type:
+                                    chat.end_block()
+                                tool = get_tool(name)
+                                icon = tool.tool_icon if tool else "→"
+                                chat.start_tool(name, id, "", icon=icon)
+                                self._current_block_type = "tool_call"
+                                status.increment_tool_calls()
+
+                            case ToolArgsTokenUpdateEvent(token_count=tc):
+                                status.set_streaming_tokens(tc)
+
+                            case ToolEndEvent(tool_call_id=id, display=display):
+                                chat.update_tool_call_msg(id, display)
+
+                            case ToolApprovalEvent(
+                                tool_call_id=id, tool_name=name, display=disp, future=f
+                            ):
+                                self.bell()
+                                chat.show_tool_approval(id, preview=disp or None)
+                                self._approval_future = f
+                                self._approval_tool_id = id
+
+                            case ToolResultEvent(tool_call_id=id, result=r, file_changes=fc):
+                                self._approval_future = None
+                                self._approval_tool_id = None
+                                if r:
+                                    markup = True
+                                    ui_summary = r.ui_summary
+                                    ui_details = r.ui_details
+                                    if ui_summary is None and ui_details is None and r.content:
+                                        ui_details = self._format_tool_result_text(r)
+                                        markup = False
+                                    success = not r.is_error
+                                    chat.set_tool_result(
+                                        id, ui_summary, ui_details, success, markup=markup
+                                    )
+                                if fc:
+                                    info_bar = self.query_one("#info-bar", InfoBar)
+                                    info_bar.update_file_changes(fc.path, fc.added, fc.removed)
+
+                            case TurnEndEvent():
+                                if event.assistant_message and event.assistant_message.usage:
+                                    usage = event.assistant_message.usage
+                                    info_bar = self.query_one("#info-bar", InfoBar)
+                                    info_bar.update_tokens(
+                                        usage.input_tokens,
+                                        usage.output_tokens,
+                                        usage.cache_read_tokens,
+                                        usage.cache_write_tokens,
+                                    )
+
+                            case InterruptedEvent():
+                                if self._current_block_type:
+                                    chat.end_block()
+                                    self._current_block_type = None
+
+                            case CompactionStartEvent():
+                                if self._current_block_type:
+                                    chat.end_block()
+                                    self._current_block_type = None
+                                chat.show_spinner_status("Auto-compacting...")
+
+                            case CompactionEndEvent(tokens_before=tb, aborted=ab):
+                                if ab:
+                                    chat.show_status("Compaction failed")
+                                else:
+                                    chat.add_compaction_message(tb)
+
+                            case RetryEvent(attempt=a, total_attempts=t, delay=d, error=e):
+                                msg = f"Request failed (attempt {a}/{t}), retrying in {d}s; Error: {e}"
+                                chat.add_info_message(msg, error=True)
+
+                            case ErrorEvent(error=e):
+                                chat.add_info_message(str(e), error=True)
+
+                            case WarningEvent(warning=w):
+                                chat.add_info_message(str(w), warning=True)
+
+                            case AgentEndEvent(stop_reason=reason):
+                                if self._current_block_type:
+                                    chat.end_block()
+                                self._current_block_type = None
+
+                except Exception as e:
+                    chat.add_info_message(str(e), error=True)
 
         except Exception as e:
             chat.set_tool_result(
@@ -894,8 +1026,11 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             )
             chat.add_info_message(f"Error executing shell command: {e}", error=True)
         finally:
-            self._is_running = False
+            self._interrupt_requested = False
             self._cancel_event = None
+            self._current_block_type = None
+            self._clear_approval_state()
+            self._is_running = False
             status.set_status("idle")
 
     async def _run_agent(self, prompt: str) -> None:
