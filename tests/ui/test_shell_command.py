@@ -57,7 +57,7 @@ class TestShellCommand:
         app, mock_chat_log, _ = mock_kon_app
         app._handle_command = MagicMock(return_value=False)
         app._run_shell_command = MagicMock()
-        app._run_agent = AsyncMock()  # Mock the agent run to avoid actual execution
+        app._run_agent = MagicMock()  # Mock the agent run to avoid actual execution
 
         event = MagicMock()
         event.text = "!"
