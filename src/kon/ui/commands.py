@@ -504,7 +504,7 @@ Extra tools:
             return
 
         completion_list = self.query_one("#completion-list", FloatingList)
-        completion_list.show(items, searchable=True)
+        completion_list.show(items, searchable=True, max_label_width=90)
 
         input_box = self.query_one("#input-box", InputBox)
         input_box.clear()
@@ -797,7 +797,7 @@ Extra tools:
             chat.show_status("Compaction failed")
             chat.add_info_message(f"Compaction failed: {e}", error=True)
 
-    def _format_session_label(self, message: str, width: int = 72) -> str:
+    def _format_session_label(self, message: str, width: int = 90) -> str:
         normalized = " ".join(message.split())
         if len(normalized) > width:
             normalized = normalized[: width - 3].rstrip() + "..."
