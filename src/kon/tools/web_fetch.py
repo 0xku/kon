@@ -1,9 +1,12 @@
 import asyncio
-from copy import deepcopy
+import ipaddress
+from urllib.parse import urlparse
 
+from curl_cffi import AsyncSession, CurlOpt
+from html_to_markdown import ConversionOptions, convert
+from lxml import html as lxml_html
 from pydantic import BaseModel, Field
-from trafilatura import extract, fetch_url
-from trafilatura.settings import DEFAULT_CONFIG
+from readability import Document
 
 from ..core.types import ToolResult
 from ._tool_utils import ToolCancelledError, await_task_or_cancel, truncate_text
@@ -11,10 +14,58 @@ from .base import BaseTool
 
 MAX_CHARS = 80_000
 MAX_CHARS_PER_LINE = 2000
-DOWNLOAD_TIMEOUT = 5
+MAX_RESPONSE_BYTES = 20_000_000
+REQUEST_TIMEOUT = 15
 
-_download_config = deepcopy(DEFAULT_CONFIG)
-_download_config["DEFAULT"]["DOWNLOAD_TIMEOUT"] = str(DOWNLOAD_TIMEOUT)
+# Only checked on failure paths, so false positives can't suppress real content.
+_CHALLENGE_SIGNATURES = (
+    "please wait for verification",  # Reddit 200 JS challenge
+    "prove your humanity",  # Reddit 200 reCAPTCHA gate
+    "whoa there, pardner",  # Reddit 403 ratelimit page
+    "just a moment...",  # Cloudflare
+    "checking your browser",  # Cloudflare (legacy)
+    "attention required",  # Cloudflare block page
+)
+
+# Inline SVG data URIs would otherwise become base64 noise.
+_CONVERT_OPTIONS = ConversionOptions(skip_images=True)
+
+# concat(';', ...) anchors to a property boundary to block url() false positives.
+_HIDDEN_XPATH = (
+    "//script | //style | //noscript | //template"
+    " | //*[@hidden or @aria-hidden='true']"
+    " | //*[contains(concat(';', translate(@style, ' \t\n', '')), ';display:none')]"
+    " | //*[contains(concat(';', translate(@style, ' \t\n', '')), ';visibility:hidden')]"
+)
+
+
+def _looks_like_challenge(html: str) -> bool:
+    head = html[:4096].lower()
+    return any(sig in head for sig in _CHALLENGE_SIGNATURES)
+
+
+def _is_link_local(ip: str) -> bool:
+    try:
+        return ipaddress.ip_address(ip).is_link_local
+    except ValueError:
+        return True  # fail closed
+
+
+def _extract_markdown(html: str) -> str | None:
+    if not html:
+        return None
+    try:
+        tree = lxml_html.fromstring(html)
+        for node in tree.xpath(_HIDDEN_XPATH):
+            if (parent := node.getparent()) is not None:
+                parent.remove(node)
+        doc_input = tree
+    except Exception:
+        doc_input = html  # fall back to readability's own lenient parser
+    summary_html = Document(doc_input).summary()
+    if not summary_html or len(summary_html) < 50:
+        return None
+    return convert(summary_html, _CONVERT_OPTIONS).content or None
 
 
 class WebFetchParams(BaseModel):
@@ -27,7 +78,7 @@ class WebFetchTool(BaseTool):
     mutating = False
     params = WebFetchParams
     description = (
-        "Fetch a web page and extract its main content as clean text. "
+        "Fetch a web page and extract its main content as clean markdown. "
         "Strips navigation, ads, and boilerplate. "
         "Use web_search first to find relevant URLs (if not provided by the user)."
     )
@@ -38,33 +89,63 @@ class WebFetchTool(BaseTool):
     async def execute(
         self, params: WebFetchParams, cancel_event: asyncio.Event | None = None
     ) -> ToolResult:
-        def _fetch_and_extract() -> str | None:
-            html = fetch_url(params.url, config=_download_config)
-            if not html:
-                return None
-            return extract(
-                html,
-                output_format="txt",
-                include_comments=False,
-                include_tables=True,
-                favor_precision=True,
-                config=_download_config,
-            )
+        scheme = urlparse(params.url).scheme
+        if scheme not in ("http", "https"):
+            msg = f"Refused: unsupported scheme {scheme!r}"
+            return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
 
         try:
-            work = asyncio.create_task(asyncio.to_thread(_fetch_and_extract))
-            content = await await_task_or_cancel(work, cancel_event)
+            async with AsyncSession(
+                impersonate="chrome131",
+                allow_redirects="safe",
+                curl_options={CurlOpt.MAXFILESIZE_LARGE: MAX_RESPONSE_BYTES},
+            ) as session:
+                fetch_task = asyncio.create_task(session.get(params.url, timeout=REQUEST_TIMEOUT))
+                response = await await_task_or_cancel(fetch_task, cancel_event)
         except ToolCancelledError:
             return ToolResult(success=False, result="Fetch aborted")
         except Exception as e:
-            return ToolResult(success=False, ui_summary=f"[red]Fetch failed: {e}[/red]")
+            msg = f"Fetch failed: {e}"
+            return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
+
+        if _is_link_local(response.primary_ip):
+            msg = f"Refused: link-local address ({response.primary_ip or 'unknown'})"
+            return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
+
+        # Catches decompression bombs (MAXFILESIZE_LARGE only bounds wire bytes).
+        if len(response.content) > MAX_RESPONSE_BYTES:
+            msg = f"Response too large (>{MAX_RESPONSE_BYTES:,} bytes decoded)"
+            return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
+
+        if not (200 <= response.status_code < 300):
+            status = f"HTTP {response.status_code}"
+            msg = (
+                f"Site appears to block automated fetchers ({status})"
+                if _looks_like_challenge(response.text)
+                else status
+            )
+            return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
+
+        html = response.text
+
+        try:
+            extract_task = asyncio.create_task(asyncio.to_thread(_extract_markdown, html))
+            content = await await_task_or_cancel(extract_task, cancel_event)
+        except ToolCancelledError:
+            return ToolResult(success=False, result="Extraction aborted")
+        except Exception as e:
+            msg = f"Extraction failed: {e}"
+            return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
 
         if not content:
-            return ToolResult(success=False, ui_summary="[red]Couldn't extract content[/red]")
+            msg = (
+                "Site appears to block automated fetchers"
+                if _looks_like_challenge(html)
+                else "Couldn't extract content"
+            )
+            return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
 
-        lines = content.split("\n")
-        lines = [line[:MAX_CHARS_PER_LINE] for line in lines]
-        content = "\n".join(lines)
+        content = "\n".join(line[:MAX_CHARS_PER_LINE] for line in content.split("\n"))
 
         char_count = len(content)
         truncated = char_count > MAX_CHARS
