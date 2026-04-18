@@ -318,7 +318,7 @@ class FloatingList[T](Widget):
                 else:
                     description = description[: self._description_width - 1] + "…"
             text.append(" ")
-            text.append(description, style=dim_color)
+            text.append(description, style=selected_color if is_selected else dim_color)
 
         return text
 
