@@ -674,21 +674,15 @@ Extra tools:
             chat.add_info_message("Session has no messages to export")
             return
 
-        system_prompt = self._agent.system_prompt
-        tools = self._tools
-
         provider_name = self._provider.name if self._provider else "unknown"
 
         try:
             path = export_session_html(
                 session=self._session,
-                system_prompt=system_prompt,
-                tools=tools,
                 output_dir=self._cwd,
                 model_id=self._model,
                 provider=provider_name,
                 version=getattr(self, "VERSION", ""),
-                title_color=config.ui.colors.title,
             )
             chat.add_info_message(f"Session exported to {path.name}")
         except Exception as e:
