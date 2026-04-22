@@ -181,6 +181,9 @@ extra = ["web_search", "web_fetch"]
 [ui]
 theme = "gruvbox-dark"
 
+[notifications]
+enabled = true
+
 [permissions]
 mode = "prompt"
 ```
