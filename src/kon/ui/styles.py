@@ -42,7 +42,7 @@ Screen {{
     text-style: italic;
     padding: 0 1 0 1;
     margin: 1 0 0 1;
-    border-left: outer {colors.muted};
+    border-left: outer {colors.border};
 }}
 
 .thinking-block.-hidden {{
