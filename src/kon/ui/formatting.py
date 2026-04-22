@@ -13,6 +13,8 @@ from rich.theme import Theme
 
 from kon import config
 
+from .latex import preprocess_latex
+
 _MARKDOWN_THEME: Theme | None = None
 
 
@@ -143,6 +145,7 @@ def strip_markdown_for_collapsed_text(text: str) -> str:
 
 
 def format_markdown(text: str, width: int | None = None) -> Text:
+    text = preprocess_latex(text)
     sanitized = _strip_inline_code_ticks_in_headings(text)
     md = CustomMarkdown(sanitized)
     if width is None:
