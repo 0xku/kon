@@ -61,6 +61,7 @@ from ..llm import (
 )
 from ..llm.base import AuthMode
 from ..loop import Agent
+from ..notify import notify
 from ..permissions import ApprovalResponse
 from ..session import Session
 from ..tools import DEFAULT_TOOLS, EXTRA_TOOLS, get_tool, get_tools
@@ -101,6 +102,7 @@ _COPILOT_API_TYPES: frozenset[ApiType] = frozenset(
 )
 
 _OPENAI_OAUTH_API_TYPES: frozenset[ApiType] = frozenset({ApiType.OPENAI_CODEX_RESPONSES})
+_NOTIFY_EVENTS = (AgentEndEvent, ToolApprovalEvent)
 
 _API_TYPE_BY_PROVIDER: dict[type[BaseProvider], ApiType] = {
     v: k for k, v in API_TYPE_TO_PROVIDER_CLASS.items()
@@ -890,6 +892,15 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                 async for event in self._agent.run(
                     current_prompt, cancel_event=self._cancel_event, steer_event=self._steer_event
                 ):
+                    should_notify = isinstance(event, _NOTIFY_EVENTS)
+                    if (
+                        isinstance(event, AgentEndEvent)
+                        and event.stop_reason == StopReason.INTERRUPTED
+                    ):
+                        should_notify = False
+                    if should_notify:
+                        notify("kon", "Task complete")
+
                     match event:
                         case AgentStartEvent():
                             pass
