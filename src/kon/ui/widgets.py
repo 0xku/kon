@@ -476,7 +476,7 @@ class StatusLine(Horizontal):
         text = Text()
         text.append("ctrl+c", style=muted_color)
         text.append(" again to exit", style=dim_color)
-        self._exit_hint_label.update(text, layout=False)
+        self._exit_hint_label.update(text)
 
     def show_delete_session_hint(self) -> None:
         muted_color = config.ui.colors.muted
@@ -484,11 +484,11 @@ class StatusLine(Horizontal):
         text = Text()
         text.append("ctrl+d", style=muted_color)
         text.append(" again to delete session", style=dim_color)
-        self._exit_hint_label.update(text, layout=False)
+        self._exit_hint_label.update(text)
 
     def hide_exit_hint(self) -> None:
         self._show_exit_hint = False
-        self._exit_hint_label.update("", layout=False)
+        self._exit_hint_label.update("")
 
     def reset(self) -> None:
         self._stop_spinner_timer()
@@ -496,4 +496,4 @@ class StatusLine(Horizontal):
         self._tool_calls = 0
         self._show_exit_hint = False
         self._status_text.update("", layout=False)
-        self._exit_hint_label.update("", layout=False)
+        self._exit_hint_label.update("")
