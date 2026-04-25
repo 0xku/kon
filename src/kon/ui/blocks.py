@@ -52,22 +52,22 @@ class _StreamingMarkdownMixin:
         self._pending = ""
         self._completed = ""
 
-    def _append_streaming(self, text: str) -> Text:
+    def _append_streaming(self, text: str) -> Text | None:
         self._pending += text
 
         last_nl = self._pending.rfind("\n")
-        if last_nl != -1:
-            self._completed += self._pending[: last_nl + 1]
-            self._pending = self._pending[last_nl + 1 :]
+        if last_nl == -1:
+            return None
 
-        display = Text()
-        if self._completed:
-            display.append_text(format_markdown(self._completed))
+        self._completed += self._pending[: last_nl + 1]
+        self._pending = self._pending[last_nl + 1 :]
+        return format_markdown(self._completed)
+
+    def _flush_streaming(self) -> Text:
         if self._pending:
-            if self._completed:
-                display.append("\n")
-            display.append(self._pending)
-        return display
+            self._completed += self._pending
+            self._pending = ""
+        return format_markdown(self._completed)
 
 
 class ThinkingBlock(_StreamingMarkdownMixin, Static):
@@ -106,11 +106,13 @@ class ThinkingBlock(_StreamingMarkdownMixin, Static):
 
     async def append(self, text: str) -> None:
         self._content += text
-        self.label.update(self._append_streaming(text))
+        if display := self._append_streaming(text):
+            self.label.update(display)
 
     def finalize(self) -> None:
         if self._content and not self._finalized:
             self._finalized = True
+            self.label.update(self._flush_streaming())
             self.call_after_refresh(self._do_finalize)
 
     def _do_finalize(self) -> None:
@@ -160,11 +162,13 @@ class ContentBlock(_StreamingMarkdownMixin, Static):
 
     async def append(self, text: str) -> None:
         self._content += text
-        self.label.update(self._append_streaming(text))
+        if display := self._append_streaming(text):
+            self.label.update(display)
 
     def finalize(self) -> None:
         if self._content and not self._finalized:
             self._finalized = True
+            self.label.update(self._flush_streaming())
             self.call_after_refresh(self._do_finalize)
 
     def _do_finalize(self) -> None:
