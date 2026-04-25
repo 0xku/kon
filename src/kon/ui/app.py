@@ -968,6 +968,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                         case ToolApprovalEvent(
                             tool_call_id=id, tool_name=name, display=disp, future=f
                         ):
+                            self.app.bell()
                             chat.show_tool_approval(id, preview=disp or None)
                             self._approval_future = f
                             self._approval_tool_id = id
