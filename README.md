@@ -334,21 +334,6 @@ Kon supports direct shell command execution from the input box using two prefixe
 !!find . -name "*.py" | head -20  # Find Python files and get LLM insights
 ```
 
-**Features:**
-
-- Commands are executed in the current working directory
-- Output is displayed with syntax highlighting and proper formatting
-- Failed commands show error messages with exit codes
-- Long output is truncated with a link to the full output file
-- Commands timeout after 180 seconds by default
-- Output is sanitized to remove ANSI escape sequences
-
-**Security:**
-
-- Commands run with a sanitized environment (`CI=true`, `NO_COLOR=1`, etc.)
-- Output is limited to prevent excessive memory usage
-- Commands are executed with proper process isolation
-
 ---
 
 ## Sessions
