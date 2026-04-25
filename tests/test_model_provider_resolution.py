@@ -28,3 +28,10 @@ def test_get_model_prefers_provider_for_gpt_5_4():
     assert copilot.provider == "github-copilot"
     assert openai.provider == "openai-codex"
     assert copilot.api != openai.api
+
+
+def test_get_model_resolves_deepseek_models():
+    model = get_model("deepseek-v4-flash", "deepseek")
+
+    assert model is not None
+    assert model.provider == "deepseek"

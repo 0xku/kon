@@ -16,6 +16,7 @@ ENV_API_KEY_MAP: dict[str, str] = {
     "openai": "OPENAI_API_KEY",
     "google": "GEMINI_API_KEY",
     "azure-ai-foundry": "AZURE_AI_FOUNDRY_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
 }
 
 

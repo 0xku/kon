@@ -78,3 +78,10 @@ mode = "prompt" # "prompt" or "auto"
 # Play audio when kon finishes a task, hits an error, or waits for tool approval.
 # Disabled by default.
 enabled = false
+
+# Example: DeepSeek provider
+# export DEEPSEEK_API_KEY="sk-your-api-key"
+#
+# Then set in [llm]:
+# default_provider = "deepseek"
+# default_model = "deepseek-v4-flash"
