@@ -4,7 +4,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from kon import config, set_theme
+from kon import config, set_notifications_enabled, set_permission_mode, set_theme
+from kon.config import NOTIFICATION_MODES, PERMISSION_MODES, NotificationMode, PermissionMode
 
 from ..core.compaction import generate_summary
 from ..core.handoff import generate_handoff_prompt
@@ -69,6 +70,7 @@ class CommandsMixin:
         def _sync_slash_commands(self) -> None: ...
         def _render_session_entries(self, session: Session) -> None: ...
         def _apply_theme(self, theme_id: str) -> None: ...
+        def _apply_thinking_level_style(self, level: str) -> None: ...
 
     def _handle_command(self, text: str) -> bool:
         parts = text[1:].split(maxsplit=1)
@@ -92,6 +94,15 @@ class CommandsMixin:
             return True
         if cmd == "themes":
             self._handle_themes_command(args)
+            return True
+        if cmd == "permissions":
+            self._handle_permissions_command(args)
+            return True
+        if cmd == "thinking":
+            self._handle_thinking_command(args)
+            return True
+        if cmd == "notifications":
+            self._handle_notifications_command(args)
             return True
         if cmd == "handoff":
             self._handle_handoff_command(args)
@@ -129,6 +140,9 @@ class CommandsMixin:
   /compact   - Compact current conversation now
   /model     - Change model (/model gpt-4o)
   /themes    - Change UI theme (/themes gruvbox-dark)
+  /permissions - Change permission mode (/permissions auto)
+  /thinking  - Change thinking level (/thinking high)
+  /notifications - Toggle notifications (/notifications on)
   /new       - Start new conversation
   /handoff   - Start focused handoff in new session
   /resume    - Resume a session
@@ -144,7 +158,8 @@ Keybindings:
   escape     - Cancel completion / interrupt agent
   ctrl+c     - Clear input (press twice to quit)
   ctrl+t     - Toggle thinking visibility
-  shift+tab  - Cycle thinking levels
+  ctrl+shift+t - Cycle thinking levels
+  shift+tab  - Cycle permission mode
 
 Extra tools:
   --extra-tools web_search,web_fetch  or  [tools] extra in ~/.kon/config.toml"""
@@ -174,10 +189,11 @@ Extra tools:
             parts = [m.provider]
             if not m.supports_images:
                 parts.append("[no-vision]")
-            if m.id == self._model and m.provider == self._model_provider:
-                parts.append("✓")
             caption = " ".join(parts)
-            items.append(ListItem(value=m, label=m.id, description=caption))
+            label = (
+                f"{m.id} ✓" if m.id == self._model and m.provider == self._model_provider else m.id
+            )
+            items.append(ListItem(value=m, label=label, description=caption))
 
         completion_list = self.query_one("#completion-list", FloatingList)
         completion_list.show(items, searchable=True)
@@ -204,8 +220,8 @@ Extra tools:
         items = [
             ListItem(
                 value=theme_id,
-                label=label,
-                description=f"{theme_id} ✓" if theme_id == current_theme else theme_id,
+                label=f"{label} ✓" if theme_id == current_theme else label,
+                description=theme_id,
             )
             for theme_id, label in get_theme_options()
         ]
@@ -219,6 +235,149 @@ Extra tools:
         input_box.set_completing(True)
         input_box.focus()
         self._selection_mode = SelectionMode.THEME
+
+    def _handle_permissions_command(self, args: str) -> None:
+        chat = self.query_one("#chat-log", ChatLog)
+
+        requested = args.strip()
+        if requested:
+            if requested in PERMISSION_MODES:
+                self._select_permission_mode(requested)
+            else:
+                valid_modes = ", ".join(PERMISSION_MODES)
+                chat.add_info_message(
+                    f"Invalid permission mode: {requested}. Use one of: {valid_modes}", error=True
+                )
+            return
+
+        current_mode = config.permissions.mode
+        descriptions: dict[PermissionMode, str] = {
+            "prompt": "ask before mutating tool calls",
+            "auto": "allow tool calls without approval prompts",
+        }
+        items = [
+            ListItem(
+                value=mode,
+                label=f"{mode} ✓" if mode == current_mode else mode,
+                description=descriptions[mode],
+            )
+            for mode in PERMISSION_MODES
+        ]
+
+        completion_list = self.query_one("#completion-list", FloatingList)
+        completion_list.show(items, searchable=True)
+
+        input_box = self.query_one("#input-box", InputBox)
+        input_box.clear()
+        input_box.set_autocomplete_enabled(False)
+        input_box.set_completing(True)
+        input_box.focus()
+        self._selection_mode = SelectionMode.PERMISSIONS
+
+    def _select_permission_mode(self, mode: PermissionMode) -> None:
+        set_permission_mode(mode)
+        info_bar = self.query_one("#info-bar", InfoBar)
+        info_bar.set_permission_mode(mode)
+        chat = self.query_one("#chat-log", ChatLog)
+        chat.show_status(f"Permission mode changed to {mode} and saved")
+
+    def _handle_thinking_command(self, args: str) -> None:
+        chat = self.query_one("#chat-log", ChatLog)
+        if self._provider is None:
+            chat.add_info_message("Agent not initialized", error=True)
+            return
+
+        requested = args.strip()
+        if requested:
+            if requested in self._provider.thinking_levels:
+                self._select_thinking_level(requested)
+            else:
+                valid_levels = ", ".join(self._provider.thinking_levels)
+                chat.add_info_message(
+                    f"Invalid thinking level: {requested}. Use one of: {valid_levels}", error=True
+                )
+            return
+
+        current_level = self._thinking_level
+        items = [
+            ListItem(
+                value=level,
+                label=f"{level} ✓" if level == current_level else level,
+                description="current session only",
+            )
+            for level in self._provider.thinking_levels
+        ]
+
+        completion_list = self.query_one("#completion-list", FloatingList)
+        completion_list.show(items, searchable=True)
+
+        input_box = self.query_one("#input-box", InputBox)
+        input_box.clear()
+        input_box.set_autocomplete_enabled(False)
+        input_box.set_completing(True)
+        input_box.focus()
+        self._selection_mode = SelectionMode.THINKING
+
+    def _select_thinking_level(self, level: str) -> None:
+        if self._provider is None:
+            return
+
+        self._provider.set_thinking_level(level)
+        self._thinking_level = level
+
+        if self._session:
+            self._session.set_thinking_level(level)
+
+        info_bar = self.query_one("#info-bar", InfoBar)
+        info_bar.set_thinking_level(level)
+        self._apply_thinking_level_style(level)
+
+        chat = self.query_one("#chat-log", ChatLog)
+        chat.show_status(f"Thinking level changed to {level}")
+
+    def _handle_notifications_command(self, args: str) -> None:
+        chat = self.query_one("#chat-log", ChatLog)
+
+        requested = args.strip()
+        if requested:
+            if requested in NOTIFICATION_MODES:
+                self._select_notifications_mode(requested)
+            else:
+                valid_modes = ", ".join(NOTIFICATION_MODES)
+                chat.add_info_message(
+                    f"Invalid notifications mode: {requested}. Use one of: {valid_modes}",
+                    error=True,
+                )
+            return
+
+        current_mode: NotificationMode = "on" if config.notifications.enabled else "off"
+        descriptions: dict[NotificationMode, str] = {
+            "on": "play notification sounds",
+            "off": "disable notification sounds",
+        }
+        items = [
+            ListItem(
+                value=mode,
+                label=f"{mode} ✓" if mode == current_mode else mode,
+                description=descriptions[mode],
+            )
+            for mode in NOTIFICATION_MODES
+        ]
+
+        completion_list = self.query_one("#completion-list", FloatingList)
+        completion_list.show(items, searchable=True)
+
+        input_box = self.query_one("#input-box", InputBox)
+        input_box.clear()
+        input_box.set_autocomplete_enabled(False)
+        input_box.set_completing(True)
+        input_box.focus()
+        self._selection_mode = SelectionMode.NOTIFICATIONS
+
+    def _select_notifications_mode(self, mode: NotificationMode) -> None:
+        set_notifications_enabled(mode == "on")
+        chat = self.query_one("#chat-log", ChatLog)
+        chat.show_status(f"Notifications turned {mode} and saved")
 
     def _select_theme(self, theme_id: str) -> None:
         set_theme(theme_id)
@@ -530,8 +689,9 @@ Extra tools:
 
         items: list[ListItem] = []
         for p in providers:
-            status = "✓ logged in" if p["logged_in"] else ""
-            items.append(ListItem(value=p["id"], label=p["name"], description=status))
+            label = f"{p['name']} ✓" if p["logged_in"] else p["name"]
+            description = "logged in" if p["logged_in"] else ""
+            items.append(ListItem(value=p["id"], label=label, description=description))
 
         completion_list = self.query_one("#completion-list", FloatingList)
         completion_list.show(items, searchable=True)

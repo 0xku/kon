@@ -126,7 +126,8 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         Binding("ctrl+d", "handle_ctrl_d", "Delete session", priority=True),
         ("escape", "interrupt_agent", "Interrupt"),
         ("ctrl+t", "toggle_thinking", "Toggle thinking"),
-        Binding("shift+tab", "cycle_thinking_level", "Cycle thinking level", priority=True),
+        Binding("ctrl+shift+t", "cycle_thinking_level", "Cycle thinking level", priority=True),
+        Binding("shift+tab", "cycle_permission_mode", "Cycle permission mode", priority=True),
     ]
 
     def __init__(
@@ -226,7 +227,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
 
     def _apply_thinking_level_style(self, level: str) -> None:
         input_box = self.query_one("#input-box", InputBox)
-        for name in ("none", "minimal", "low", "medium", "high", "xhigh"):
+        for name in ("none", "low", "medium", "high", "xhigh"):
             input_box.remove_class(self._thinking_level_class(name))
         input_box.add_class(self._thinking_level_class(level))
 
@@ -595,6 +596,12 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                     self._select_model(item.value)
                 case SelectionMode.THEME:
                     self._select_theme(item.value)
+                case SelectionMode.PERMISSIONS:
+                    self._select_permission_mode(item.value)
+                case SelectionMode.THINKING:
+                    self._select_thinking_level(item.value)
+                case SelectionMode.NOTIFICATIONS:
+                    self._select_notifications_mode(item.value)
                 case SelectionMode.LOGIN:
                     self._select_login_provider(item.value)
                 case SelectionMode.LOGOUT:
@@ -728,23 +735,19 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         status = "hidden" if self._hide_thinking else "visible"
         chat.show_status(f"Thinking blocks {status}")
 
+    def action_cycle_permission_mode(self) -> None:
+        current_mode = config.permissions.mode
+        new_mode = "prompt" if current_mode == "auto" else "auto"
+        self._select_permission_mode(new_mode)
+
     def action_cycle_thinking_level(self) -> None:
         if self._provider is None:
             return
 
-        chat = self.query_one("#chat-log", ChatLog)
-        info_bar = self.query_one("#info-bar", InfoBar)
-
-        new_level = self._provider.cycle_thinking_level()
-        self._thinking_level = new_level
-
-        if self._session:
-            self._session.set_thinking_level(new_level)
-
-        info_bar.set_thinking_level(new_level)
-        self._apply_thinking_level_style(new_level)
-
-        chat.show_status(f"Thinking level: {new_level}")
+        levels = self._provider.thinking_levels
+        current_idx = levels.index(self._thinking_level) if self._thinking_level in levels else 0
+        new_level = levels[(current_idx + 1) % len(levels)]
+        self._select_thinking_level(new_level)
 
     @on(HandoffLinkBlock.LinkSelected)
     def on_handoff_link_selected(self, event: HandoffLinkBlock.LinkSelected) -> None:

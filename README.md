@@ -256,6 +256,9 @@ Type `/` at the start of the input box to see available commands.
 | `/compact` | Compact the current conversation immediately |
 | `/handoff` | Create a focused handoff into a new session |
 | `/themes` | Switch UI themes |
+| `/permissions` | Switch permission mode |
+| `/thinking` | Switch thinking level for the current session |
+| `/notifications` | Toggle notification sounds |
 | `/export` | Export current session to standalone HTML |
 | `/copy` | Copy the last assistant response to the clipboard |
 | `/login` | Authenticate with a supported OAuth provider |
@@ -462,6 +465,8 @@ Kon supports two permission modes:
 | `auto` | Skip approval prompts |
 
 In `prompt` mode, non-mutating tools are allowed automatically, and some clearly read-only shell commands are also allowed.
+
+Use `/permissions` to switch modes for the current session and persist the change to config.
 
 ```toml
 [permissions]

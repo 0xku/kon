@@ -177,8 +177,9 @@ class ChatLog(VerticalScroll):
         append_hint("ctrl+c x2", "to quit")
         append_hint("enter", "to queue if busy")
         append_hint("alt+enter", "to steer if busy")
+        append_hint("shift+tab", "to cycle modes")
         append_hint("ctrl+t", "to show/hide thinking")
-        append_hint("shift+tab", "to cycle thinking", trailing_newline=False)
+        append_hint("ctrl+shift+t", "to cycle thinking", trailing_newline=False)
 
         info_label = Label(info_text)
         info_label.add_class("session-info")
