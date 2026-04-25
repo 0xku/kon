@@ -13,6 +13,7 @@ from textual.timer import Timer
 from textual.widgets import Label
 
 from kon import config
+from kon.config import PermissionMode
 
 from .formatting import format_tokens
 
@@ -157,6 +158,8 @@ class InfoBar(Vertical):
         self._cache_write_tokens = 0
         self._context_tokens: int | None = None
         self._file_changes: dict[str, tuple[int, int]] = {}  # path -> (added, removed)
+        self._permission_mode = config.permissions.mode
+        self._file_changes_text_start: int | None = None
         self._row1_right: Label | None = None
         self._row2_left: Label | None = None
         self._row2_right: Label | None = None
@@ -231,13 +234,25 @@ class InfoBar(Vertical):
         result.append(f" • {self._thinking_level}")
         return result
 
+    def _format_permission_mode(self) -> Text:
+        result = Text()
+        if self._permission_mode == "auto":
+            result.append("✓✓ auto", style=config.ui.colors.badge.label)
+        else:
+            result.append("⏸ prompt", style=config.ui.colors.notice)
+        return result
+
     def _format_row2_right(self) -> Text:
+        result = self._format_permission_mode()
+        self._file_changes_text_start = None
         if not self._file_changes:
-            return Text("")
+            return result
+
         n_files = len(self._file_changes)
         total_added = sum(a for a, _ in self._file_changes.values())
         total_removed = sum(r for _, r in self._file_changes.values())
-        result = Text()
+        result.append(" • ", style=config.ui.colors.dim)
+        self._file_changes_text_start = len(result.plain)
         result.append(f"{n_files} file{'s' if n_files != 1 else ''}")
         result.append(f" +{total_added}", style=config.ui.colors.diff_added)
         result.append(f" -{total_removed}", style=config.ui.colors.diff_removed)
@@ -287,6 +302,10 @@ class InfoBar(Vertical):
     def set_thinking_visibility(self, hide_thinking: bool) -> None:
         self._hide_thinking = hide_thinking
 
+    def set_permission_mode(self, mode: PermissionMode) -> None:
+        self._permission_mode = mode
+        self._label_row2_left.update(self._format_row2_right(), layout=False)
+
     def update_file_changes(self, path: str, added: int, removed: int) -> None:
         prev_added, prev_removed = self._file_changes.get(path, (0, 0))
         self._file_changes[path] = (prev_added + added, prev_removed + removed)
@@ -296,11 +315,17 @@ class InfoBar(Vertical):
         self._file_changes = file_changes
         self._label_row2_left.update(self._format_row2_right(), layout=False)
 
+    def _is_file_changes_click(self, widget: object, x: int) -> bool:
+        return (
+            bool(self._file_changes)
+            and self._file_changes_text_start is not None
+            and widget is self._label_row2_left
+            and x >= self._file_changes_text_start
+        )
+
     def on_click(self, event: events.Click) -> None:
-        if not self._file_changes:
-            return
         widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
-        if widget is self._label_row2_left:
+        if self._is_file_changes_click(widget, event.x):
             event.stop()
             self.app.push_screen(FileChangesModal(self._file_changes))
 
