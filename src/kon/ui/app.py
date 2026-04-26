@@ -1094,6 +1094,10 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
 
         # Determine if we should send output to LLM
         send_to_llm = display_text.startswith("!!")
+
+        # Show full output for !command, truncated for !!command
+        show_full_output = not send_to_llm
+
         command_text = display_text[2:] if send_to_llm else display_text[1:]
         command_text = command_text.strip()
 
@@ -1105,9 +1109,14 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
 
         # Execute the command
         self._is_running = True
-        self.run_worker(self._execute_shell_command(command_text, send_to_llm), exclusive=True)
+        self.run_worker(
+            self._execute_shell_command(command_text, send_to_llm, show_full_output),
+            exclusive=True,
+        )
 
-    async def _execute_shell_command(self, command: str, send_to_llm: bool) -> None:
+    async def _execute_shell_command(
+        self, command: str, send_to_llm: bool, show_full_output: bool
+    ) -> None:
         """Execute a shell command and display the result"""
         chat = self.query_one("#chat-log", ChatLog)
         status = self.query_one("#status-line", StatusLine)
@@ -1118,7 +1127,9 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
 
             # Execute the command
             status.set_status("running")
-            result = await bash_tool.execute(BashParams(command=command))
+            result = await bash_tool.execute(
+                BashParams(command=command, show_full_output=show_full_output)
+            )
 
             # Start tool block
             tool_block = chat.start_tool("bash", "shell", f"$ {command}")

@@ -107,7 +107,7 @@ async def test_execute_shell_command_basic():
 
     with patch.object(BashTool, "execute", new_callable=AsyncMock, return_value=mock_result):
         # Call the method
-        await Kon._execute_shell_command(app, "ls -la", False)
+        await Kon._execute_shell_command(app, "ls -la", False, True)
 
     # Verify status was set to running and then idle
     mock_status.set_status.assert_any_call("running")
@@ -148,7 +148,7 @@ async def test_execute_shell_command_with_llm():
 
     with patch.object(BashTool, "execute", new_callable=AsyncMock, return_value=mock_result):
         # Call the method with send_to_llm=True
-        await Kon._execute_shell_command(app, "git status", True)
+        await Kon._execute_shell_command(app, "git status", True, False)
 
     # Verify _run_agent was called with the correct prompt
     app._run_agent.assert_called_once()
