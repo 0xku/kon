@@ -122,9 +122,6 @@ class BashParams(BaseModel):
     timeout: int = Field(
         description=f"Timeout in seconds (default {DEFAULT_TIMEOUT})", default=DEFAULT_TIMEOUT
     )
-    show_full_output: bool = Field(
-        description="Show full output without truncation", default=False
-    )
 
 
 class BashTool(BaseTool):
@@ -186,7 +183,10 @@ class BashTool(BaseTool):
         return "\n".join(formatted)
 
     async def execute(
-        self, params: BashParams, cancel_event: asyncio.Event | None = None
+        self,
+        params: BashParams,
+        cancel_event: asyncio.Event | None = None,
+        show_full_output: bool = False,
     ) -> ToolResult:
         if not params.command.strip():
             msg = "Command cannot be empty"
@@ -291,7 +291,7 @@ class BashTool(BaseTool):
             no_of_output_line = len(full_output.split("\n"))
 
             # Apply truncation unless show_full_output is True
-            if params.show_full_output:
+            if show_full_output:
                 trunc = TruncationResult(full_output, False, no_of_output_line, no_of_output_line)
             else:
                 trunc = _truncate_tail(full_output)
@@ -306,7 +306,7 @@ class BashTool(BaseTool):
             result_text = trunc.content or "(no output)"
 
             # Use unlimited lines for display when show_full_output is True
-            if params.show_full_output:
+            if show_full_output:
                 display_text = self._format_display(trunc.content, max_lines=no_of_output_line)
             else:
                 display_text = self._format_display(trunc.content)

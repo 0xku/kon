@@ -1132,8 +1132,9 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             # Execute the command
             status.set_status("running")
             result = await bash_tool.execute(
-                BashParams(command=command, show_full_output=show_full_output),
+                BashParams(command=command),
                 cancel_event=cancel_event,
+                show_full_output=show_full_output,
             )
 
             # Start tool block
@@ -1164,7 +1165,6 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                     "Shell command output:\n\n```\n"
                     f"{result.result}\n```\n\nWhat would you like me to do with this?"
                 )
-                chat.add_user_message("!!" + command)
                 self._is_running = True
                 await self._run_agent(prompt)
                 return

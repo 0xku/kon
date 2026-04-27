@@ -156,6 +156,3 @@ async def test_execute_shell_command_with_llm():
     assert "Shell command output:" in call_args
     assert "git status output" in call_args
     assert "What would you like me to do with this?" in call_args
-
-    # Verify chat message was added for history
-    mock_chat.add_user_message.assert_called_with("!!git status")
