@@ -130,6 +130,7 @@ async def test_execute_shell_command_with_llm():
     # Create a mock app instance
     app = Mock()
     app._is_running = False
+    app._interrupt_requested = False
 
     # Mock the chat log and status line
     mock_chat = Mock()
@@ -156,3 +157,35 @@ async def test_execute_shell_command_with_llm():
     assert "Shell command output:" in call_args
     assert "git status output" in call_args
     assert "What would you like me to do with this?" in call_args
+    assert app._interrupt_requested is False
+
+
+@pytest.mark.asyncio
+async def test_execute_shell_command_interruption_resets_state_and_skips_llm():
+    app = Mock()
+    app._is_running = False
+    app._interrupt_requested = True
+
+    mock_chat = Mock()
+    mock_status = Mock()
+    app.query_one.side_effect = lambda id, _: mock_chat if id == "#chat-log" else mock_status
+    app._run_agent = AsyncMock()
+
+    mock_result = Mock()
+    mock_result.success = False
+    mock_result.result = "Command aborted"
+    mock_result.ui_details = None
+    mock_result.ui_summary = "[yellow]Command aborted by user[/yellow]"
+
+    async def mock_execute(*args, cancel_event=None, **kwargs):
+        assert cancel_event is not None
+        cancel_event.set()
+        return mock_result
+
+    with patch.object(BashTool, "execute", new_callable=AsyncMock, side_effect=mock_execute):
+        await Kon._execute_shell_command(app, "sleep 10", True, False)
+
+    app._run_agent.assert_not_called()
+    assert app._is_running is False
+    assert app._interrupt_requested is False
+    assert app._cancel_event is None

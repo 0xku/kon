@@ -1186,8 +1186,8 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                     markup=True,
                 )
 
-            # If using !!, send output to LLM for follow-up
-            if send_to_llm and result.result:
+            # If using !!, send output to LLM for follow-up unless the command was interrupted.
+            if send_to_llm and result.result and not cancel_event.is_set():
                 prompt = (
                     "Shell command output:\n\n```\n"
                     f"{result.result}\n```\n\nWhat would you like me to do with this?"
@@ -1200,6 +1200,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             chat.add_info_message(f"Error executing command: {e}", error=True)
         finally:
             self._is_running = False
+            self._interrupt_requested = False
             self._cancel_event = None
             status.set_status("idle")
 
