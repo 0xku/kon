@@ -26,6 +26,27 @@ MAX_CHILDREN = 300
 PRUNE_TO = 200
 
 
+def _append_aligned_section(
+    text: Text,
+    title: str,
+    rows: list[tuple[str, str]],
+    *,
+    notice_color: str,
+    dim_color: str,
+    muted_color: str,
+) -> None:
+    if text.plain.strip():
+        text.append("\n")
+    text.append(f"[{title}]\n", style=notice_color)
+    if not rows:
+        return
+    max_key_len = max(len(k) for k, _ in rows)
+    for key, value in rows:
+        padded_key = key.ljust(max_key_len)
+        text.append(f"  {padded_key}   ", style=dim_color)
+        text.append(f"{value}\n", style=muted_color)
+
+
 class ChatLog(VerticalScroll):
     can_focus = False
 
@@ -233,41 +254,90 @@ class ChatLog(VerticalScroll):
         notice_color = config.ui.colors.notice
         dim_color = config.ui.colors.dim
         muted_color = config.ui.colors.muted
-        text = Text()
+        colors = dict(notice_color=notice_color, dim_color=dim_color, muted_color=muted_color)
+        text = Text("\n")
 
-        def append_section(title: str) -> None:
-            text.append("\n")
-            text.append(f"[{title}]\n", style=notice_color)
-
-        def append_row(key: str, value: str | int, trailing_newline: bool = True) -> None:
-            text.append(f"  {key}:", style=dim_color)
-            text.append(f" {value}", style=muted_color)
-            if trailing_newline:
-                text.append("\n")
-
-        append_section("File")
+        file_rows: list[tuple[str, str]] = []
         if session_dir is not None:
-            append_row("Dir", session_dir)
-        append_row("File", session_file)
+            file_rows.append(("Dir", session_dir))
+        file_rows.append(("File", session_file))
+        _append_aligned_section(text, "File", file_rows, **colors)
 
-        append_section("Messages")
-        append_row("User", user_messages)
-        append_row("Assistant", assistant_messages)
-        append_row("Tool Calls", tool_calls)
-        append_row("Tool Results", tool_results)
-        append_row("Total", total_messages)
+        msg_rows = [
+            ("User", str(user_messages)),
+            ("Assistant", str(assistant_messages)),
+            ("Tool Calls", str(tool_calls)),
+            ("Tool Results", str(tool_results)),
+            ("Total", str(total_messages)),
+        ]
+        _append_aligned_section(text, "Messages", msg_rows, **colors)
 
-        append_section("Tokens")
-        append_row("Input", f"{input_tokens:,}")
-        append_row("Output", f"{output_tokens:,}")
-        append_row("Cache read", f"{cache_read_tokens:,}")
-        append_row("Cache write", f"{cache_write_tokens:,}")
-        append_row("Total", f"{total_tokens:,}", trailing_newline=False)
+        token_rows = [
+            ("Input", f"{input_tokens:,}"),
+            ("Output", f"{output_tokens:,}"),
+            ("Cache read", f"{cache_read_tokens:,}"),
+            ("Cache write", f"{cache_write_tokens:,}"),
+            ("Total", f"{total_tokens:,}"),
+        ]
+        _append_aligned_section(text, "Tokens", token_rows, **colors)
+
+        text.rstrip()
+        label = Label(text)
+        label.add_class("info-message")
+        label.add_class("loaded-resources")
+        self.mount(label)
+
+    def add_help_details(self) -> None:
+        notice_color = config.ui.colors.notice
+        dim_color = config.ui.colors.dim
+        muted_color = config.ui.colors.muted
+        colors = dict(notice_color=notice_color, dim_color=dim_color, muted_color=muted_color)
+        text = Text("\n")
+
+        commands = [
+            ("/help", "Show this help"),
+            ("/quit", "Quit (or ctrl+c twice)"),
+            ("/clear", "Clear conversation history"),
+            ("/compact", "Compact current conversation now"),
+            ("/model", "Change model (/model gpt-4o)"),
+            ("/themes", "Change UI theme (/themes gruvbox-dark)"),
+            ("/permissions", "Change permission mode (/permissions auto)"),
+            ("/thinking", "Change thinking level (/thinking high)"),
+            ("/notifications", "Toggle notifications (/notifications on)"),
+            ("/new", "Start new conversation"),
+            ("/handoff", "Start focused handoff in new session"),
+            ("/resume", "Resume a session"),
+            ("/session", "Show session info and stats"),
+            ("/login", "Login to a provider"),
+            ("/logout", "Logout from a provider"),
+            ("/export", "Export session to HTML file"),
+            ("/copy", "Copy last agent response text to clipboard"),
+        ]
+        _append_aligned_section(text, "Commands", commands, **colors)
+
+        keybindings = [
+            ("@", "File path search (inline)"),
+            ("/", "Slash commands (at start of input)"),
+            ("escape", "Cancel completion / interrupt agent"),
+            ("ctrl+c", "Clear input (press twice to quit)"),
+            ("ctrl+t", "Toggle thinking visibility"),
+            ("ctrl+shift+t", "Cycle thinking levels"),
+            ("shift+tab", "Cycle permission mode"),
+        ]
+        _append_aligned_section(text, "Keybindings", keybindings, **colors)
+
+        text.append("\n")
+        text.append("[Extra tools]\n", style=notice_color)
+        text.append(
+            "  --extra-tools web_search,web_fetch  or  [tools] extra in ~/.kon/config.toml",
+            style=muted_color,
+        )
 
         label = Label(text)
         label.add_class("info-message")
         label.add_class("loaded-resources")
         self.mount(label)
+        self._scroll_if_anchored(animate=False)
 
     def add_launch_warnings(self, warnings: list[LaunchWarning]) -> None:
         if not warnings:

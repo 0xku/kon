@@ -124,37 +124,7 @@ class CommandsMixin:
 
     def _show_help(self) -> None:
         chat = self.query_one("#chat-log", ChatLog)
-        help_text = """Commands:
-  /help      - Show this help
-  /quit      - Quit (or ctrl+c twice)
-  /clear     - Clear conversation history
-  /compact   - Compact current conversation now
-  /model     - Change model (/model gpt-4o)
-  /themes    - Change UI theme (/themes gruvbox-dark)
-  /permissions - Change permission mode (/permissions auto)
-  /thinking  - Change thinking level (/thinking high)
-  /notifications - Toggle notifications (/notifications on)
-  /new       - Start new conversation
-  /handoff   - Start focused handoff in new session
-  /resume    - Resume a session
-  /session   - Show session info and stats
-  /login     - Login to a provider
-  /logout    - Logout from a provider
-  /export    - Export session to HTML file
-  /copy      - Copy last agent response text to clipboard
-
-Keybindings:
-  @          - File path search (inline)
-  /          - Slash commands (at start of input)
-  escape     - Cancel completion / interrupt agent
-  ctrl+c     - Clear input (press twice to quit)
-  ctrl+t     - Toggle thinking visibility
-  ctrl+shift+t - Cycle thinking levels
-  shift+tab  - Cycle permission mode
-
-Extra tools:
-  --extra-tools web_search,web_fetch  or  [tools] extra in ~/.kon/config.toml"""
-        chat.add_info_message(help_text)
+        chat.add_help_details()
 
     def _clear_conversation(self) -> None:
         if self._runtime.session:
