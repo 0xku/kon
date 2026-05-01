@@ -47,22 +47,11 @@ from ..events import (
     TurnStartEvent,
     WarningEvent,
 )
-from ..llm import (
-    API_TYPE_TO_PROVIDER_CLASS,
-    PROVIDER_API_BY_NAME,
-    ApiType,
-    BaseProvider,
-    ProviderConfig,
-    get_max_tokens,
-    get_model,
-    is_copilot_logged_in,
-    is_openai_logged_in,
-    resolve_provider_api_type,
-)
+from ..llm import PROVIDER_API_BY_NAME, ApiType, BaseProvider, ProviderConfig
 from ..llm.base import AuthMode
-from ..loop import Agent
 from ..notify import NotificationEvent, notify
 from ..permissions import ApprovalResponse
+from ..runtime import ConversationRuntime, create_provider, get_provider_api_type
 from ..session import Session
 from ..tools import DEFAULT_TOOLS, EXTRA_TOOLS, get_tool, get_tools
 from ..tools.bash import BashParams, BashTool
@@ -98,22 +87,7 @@ try:
 except PackageNotFoundError:
     VERSION = "0.3.6"
 
-_COPILOT_API_TYPES: frozenset[ApiType] = frozenset(
-    {ApiType.GITHUB_COPILOT, ApiType.GITHUB_COPILOT_RESPONSES, ApiType.ANTHROPIC_COPILOT}
-)
-
-_OPENAI_OAUTH_API_TYPES: frozenset[ApiType] = frozenset({ApiType.OPENAI_CODEX_RESPONSES})
 _NOTIFY_EVENTS = (AgentEndEvent, ToolApprovalEvent)
-
-_API_TYPE_BY_PROVIDER: dict[type[BaseProvider], ApiType] = {
-    v: k for k, v in API_TYPE_TO_PROVIDER_CLASS.items()
-}
-
-
-def _default_base_url_for_api(api_type: ApiType) -> str | None:
-    if api_type == ApiType.OPENAI_COMPLETIONS:
-        return os.environ.get("KON_BASE_URL", "https://api.z.ai/api/coding/paas/v4")
-    return None
 
 
 class Kon(CommandsMixin, SessionUIMixin, App[None]):
@@ -148,8 +122,8 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         super().__init__()
         self.theme = "textual-ansi"
         self._cwd = cwd or os.getcwd()
-        self._model = model or config.llm.default_model
-        self._model_provider: str | None = (
+        initial_model = model or config.llm.default_model
+        initial_model_provider = (
             provider
             if provider is not None
             else (config.llm.default_provider if model is None else None)
@@ -158,7 +132,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self._base_url = base_url or config.llm.default_base_url or None
         self._resume_session = resume_session
         self._continue_recent = continue_recent
-        self._thinking_level = thinking_level or config.llm.default_thinking_level
+        initial_thinking_level = thinking_level or config.llm.default_thinking_level
         self._openai_compat_auth_mode: AuthMode = (
             openai_compat_auth_mode or config.llm.auth.openai_compat
         )
@@ -190,10 +164,6 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self._exit_hints: list[str] = []
         self._session_start_time: float | None = None
 
-        self._provider: BaseProvider | None = None
-        self._session: Session | None = None
-        self._agent: Agent | None = None
-
         self._pending_update_notice_version: str | None = None
         self._update_notice_shown = False
         self._startup_complete = False
@@ -209,6 +179,18 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                 )
         self._tools = get_tools(DEFAULT_TOOLS + extra)
 
+        self._runtime = ConversationRuntime(
+            cwd=self._cwd,
+            model=initial_model,
+            model_provider=initial_model_provider,
+            api_key=self._api_key,
+            base_url=self._base_url,
+            thinking_level=initial_thinking_level,
+            tools=self._tools,
+            openai_compat_auth_mode=self._openai_compat_auth_mode,
+            anthropic_compat_auth_mode=self._anthropic_compat_auth_mode,
+        )
+
     def compose(self) -> ComposeResult:
         yield ChatLog(id="chat-log")
         yield QueueDisplay(id="queue-display")
@@ -217,8 +199,8 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         yield FloatingList(window_size=5, label_width=12, id="completion-list")
         yield InfoBar(
             cwd=self._cwd,
-            model=self._model,
-            thinking_level=self._thinking_level,
+            model=self._runtime.model,
+            thinking_level=self._runtime.thinking_level,
             hide_thinking=self._hide_thinking,
             id="info-bar",
         )
@@ -236,10 +218,59 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
     def _apply_theme(self, theme_id: str) -> None:
         type(self).CSS = get_styles()
         self.refresh_css(animate=False)
-        self._apply_thinking_level_style(self._thinking_level)
+        self._apply_thinking_level_style(self._runtime.thinking_level)
+
+    @property
+    def _model(self) -> str:
+        return self._runtime.model
+
+    @_model.setter
+    def _model(self, value: str) -> None:
+        self._runtime.model = value
+
+    @property
+    def _model_provider(self) -> str | None:
+        return self._runtime.model_provider
+
+    @_model_provider.setter
+    def _model_provider(self, value: str | None) -> None:
+        self._runtime.model_provider = value
+
+    @property
+    def _thinking_level(self) -> str:
+        return self._runtime.thinking_level
+
+    @_thinking_level.setter
+    def _thinking_level(self, value: str) -> None:
+        self._runtime.thinking_level = value
+
+    @property
+    def _provider(self) -> BaseProvider | None:
+        return self._runtime.provider
+
+    @_provider.setter
+    def _provider(self, value: BaseProvider | None) -> None:
+        self._runtime.provider = value
+
+    @property
+    def _session(self) -> Session | None:
+        return self._runtime.session
+
+    @_session.setter
+    def _session(self, value: Session | None) -> None:
+        self._runtime.session = value
+
+    @property
+    def _agent(self):
+        return self._runtime.agent
+
+    @_agent.setter
+    def _agent(self, value) -> None:
+        self._runtime.agent = value
 
     def _registered_slash_skills(self):
-        skills = self._agent.context.skills if self._agent else load_skills(self._cwd).skills
+        agent = self._runtime.agent
+        skills = agent.context.skills if agent else load_skills(self._cwd).skills
         builtin_skills = load_builtin_cmd_skills().skills
         return merge_registered_skills(skills, builtin_skills)
 
@@ -273,17 +304,14 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         return "\n".join(parts)
 
     def _create_provider(self, api_type: ApiType, config: ProviderConfig) -> BaseProvider:
-        if api_type in _COPILOT_API_TYPES and not is_copilot_logged_in():
-            raise ValueError("Not logged in to GitHub Copilot. Use /login to authenticate.")
-        if api_type in _OPENAI_OAUTH_API_TYPES and not is_openai_logged_in():
-            raise ValueError("Not logged in to OpenAI. Use /login to authenticate.")
-        cls = API_TYPE_TO_PROVIDER_CLASS.get(api_type)
-        if cls is None:
-            raise ValueError(f"Unsupported API type: {api_type.value}")
-        return cls(config)
+        return create_provider(api_type, config)
 
     def _get_provider_api_type(self, provider: BaseProvider) -> ApiType:
-        return _API_TYPE_BY_PROVIDER.get(type(provider), ApiType.OPENAI_COMPLETIONS)
+        return get_provider_api_type(provider)
+
+    def _sync_runtime_state(self) -> None:
+        # Compatibility hook for mixin/unit-test fakes. Runtime is the source of truth.
+        return None
 
     @on(events.TextSelected)
     def _on_text_selected(self) -> None:
@@ -307,130 +335,35 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self.run_worker(self._ensure_binaries(), exclusive=False)
         self.run_worker(self._check_for_updates(), exclusive=False)
 
-        if self._resume_session:
-            try:
-                self._session = Session.continue_by_id(self._cwd, self._resume_session)
-            except Exception as e:
-                self._add_launch_warning(str(e), severity="error")
-                chat = self.query_one("#chat-log", ChatLog)
-                self._flush_launch_warnings(chat)
-                return
-            if self._session.entries:
-                model_info = self._session.model
-                if model_info:
-                    provider, self._model, session_base_url = model_info
-                    self._model_provider = provider
-                    if self._base_url is None and session_base_url:
-                        self._base_url = session_base_url
-                self._thinking_level = self._session.thinking_level
-        elif self._continue_recent:
-            try:
-                self._session = Session.continue_recent(
-                    self._cwd,
-                    provider=self._model_provider,
-                    model_id=self._model,
-                    thinking_level=self._thinking_level,
-                    system_prompt=self._resolve_system_prompt(None),
-                )
-            except Exception as e:
-                self._add_launch_warning(str(e), severity="error")
-                chat = self.query_one("#chat-log", ChatLog)
-                self._flush_launch_warnings(chat)
-                return
-            if self._session.entries:
-                model_info = self._session.model
-                if model_info:
-                    provider, self._model, session_base_url = model_info
-                    self._model_provider = provider
-                    if self._base_url is None and session_base_url:
-                        self._base_url = session_base_url
-                self._thinking_level = self._session.thinking_level
-
-        model_info = get_model(self._model, self._model_provider)
-        if model_info:
-            api_type = model_info.api
-            base_url = self._base_url or model_info.base_url
-        else:
-            try:
-                api_type = resolve_provider_api_type(self._model_provider)
-            except ValueError as e:
-                self._add_launch_warning(str(e), severity="error")
-                chat = self.query_one("#chat-log", ChatLog)
-                self._flush_launch_warnings(chat)
-                return
-            base_url = self._base_url or _default_base_url_for_api(api_type)
-
-        provider_config = ProviderConfig(
-            api_key=self._api_key,
-            base_url=base_url,
-            model=self._model,
-            max_tokens=get_max_tokens(self._model),
-            thinking_level=self._thinking_level,
-            provider=self._model_provider,
-            session_id=self._session.id if self._session else None,
-            openai_compat_auth_mode=self._openai_compat_auth_mode,
-            anthropic_compat_auth_mode=self._anthropic_compat_auth_mode,
-        )
-
-        provider_error: str | None = None
         try:
-            self._provider = self._create_provider(api_type, provider_config)
-        except ValueError as e:
-            provider_error = str(e)
-
-        if self._provider:
-            valid_levels = self._provider.thinking_levels
-            if self._thinking_level not in valid_levels:
-                self._thinking_level = valid_levels[0] if valid_levels else "high"
-                self._provider.set_thinking_level(self._thinking_level)
+            init_result = self._runtime.initialize(
+                resume_session=self._resume_session, continue_recent=self._continue_recent
+            )
+        except Exception as e:
+            self._add_launch_warning(str(e), severity="error")
+            chat = self.query_one("#chat-log", ChatLog)
+            self._flush_launch_warnings(chat)
+            return
 
         self._session_start_time = time.time()
-
-        if not self._continue_recent and not self._resume_session:
-            selected_model = get_model(self._model, self._model_provider)
-            model_provider = (
-                selected_model.provider
-                if selected_model
-                else (self._provider.name if self._provider else self._model_provider)
-            )
-            self._model_provider = model_provider
-            self._session = Session.create(
-                self._cwd,
-                provider=model_provider,
-                model_id=self._model,
-                thinking_level=self._thinking_level,
-                system_prompt=self._resolve_system_prompt(None),
-                tools=[t.name for t in self._tools],
-            )
-            if model_provider:
-                self._session.append_model_change(model_provider, self._model, base_url)
-
-        # Create Agent once — it owns context + system prompt (stable across queries
-        # for prompt-prefix caching on llama-server and similar engines).
-        if self._provider is not None and self._session is not None:
-            self._agent = Agent(
-                provider=self._provider,
-                tools=self._tools,
-                session=self._session,
-                cwd=self._cwd,
-                system_prompt=self._resolve_system_prompt(self._session),
-            )
 
         self._sync_slash_commands()
 
         chat = self.query_one("#chat-log", ChatLog)
         chat.add_session_info(VERSION)
 
-        if self._agent:
+        if self._runtime.agent:
             chat.add_loaded_resources(
-                context_paths=[format_path(f.path) for f in self._agent.context.agents_files],
-                skill_paths=[format_path(s.path) for s in self._agent.context.skills],
+                context_paths=[
+                    format_path(f.path) for f in self._runtime.agent.context.agents_files
+                ],
+                skill_paths=[format_path(s.path) for s in self._runtime.agent.context.skills],
             )
-            for path, message in self._agent.context.skill_warnings:
+            for path, message in self._runtime.agent.context.skill_warnings:
                 self._add_launch_warning(f"Skill warning in {format_path(path)}: {message}")
 
-        if provider_error:
-            self._add_launch_warning(provider_error, severity="error")
+        if init_result.provider_error:
+            self._add_launch_warning(init_result.provider_error, severity="error")
 
         for warning in consume_config_warnings():
             self._add_launch_warning(warning)
@@ -438,23 +371,17 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self._flush_launch_warnings(chat)
 
         info_bar = self.query_one("#info-bar", InfoBar)
-        model_provider = (
-            model_info.provider
-            if model_info
-            else (self._model_provider or (self._provider.name if self._provider else None))
-        )
-        self._model_provider = model_provider
-        info_bar.set_model(self._model, model_provider)
-        info_bar.set_thinking_level(self._thinking_level)
-        self._apply_thinking_level_style(self._thinking_level)
+        info_bar.set_model(self._runtime.model, self._runtime.model_provider)
+        info_bar.set_thinking_level(self._runtime.thinking_level)
+        self._apply_thinking_level_style(self._runtime.thinking_level)
 
         if (
             (self._continue_recent or self._resume_session)
-            and self._session
-            and self._session.entries
+            and self._runtime.session
+            and self._runtime.session.entries
         ):
-            self._render_session_entries(self._session)
-            token_totals = self._session.token_totals()
+            self._render_session_entries(self._runtime.session)
+            token_totals = self._runtime.session.token_totals()
             info_bar.set_tokens(
                 token_totals.input_tokens,
                 token_totals.output_tokens,
@@ -462,11 +389,8 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                 token_totals.cache_read_tokens,
                 token_totals.cache_write_tokens,
             )
-            info_bar.set_file_changes(self._session.file_changes_summary())
+            info_bar.set_file_changes(self._runtime.session.file_changes_summary())
             chat.add_info_message("Resumed session")
-
-        if self._provider and self._session:
-            self._provider.config.session_id = self._session.id
 
         self._startup_complete = True
         self._show_pending_update_notice_if_idle()
@@ -743,11 +667,15 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self._select_permission_mode(new_mode)
 
     def action_cycle_thinking_level(self) -> None:
-        if self._provider is None:
+        if self._runtime.provider is None:
             return
 
-        levels = self._provider.thinking_levels
-        current_idx = levels.index(self._thinking_level) if self._thinking_level in levels else 0
+        levels = self._runtime.provider.thinking_levels
+        current_idx = (
+            levels.index(self._runtime.thinking_level)
+            if self._runtime.thinking_level in levels
+            else 0
+        )
         new_level = levels[(current_idx + 1) % len(levels)]
         self._select_thinking_level(new_level)
 
@@ -900,20 +828,11 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         status = self.query_one("#status-line", StatusLine)
         info_bar = self.query_one("#info-bar", InfoBar)
 
-        if self._provider is None or self._session is None:
+        agent = self._runtime.prepare_for_run()
+        if agent is None:
             chat.add_info_message("Agent not initialized")
             self._is_running = False
             return
-
-        if self._agent is None:
-            self._agent = Agent(
-                provider=self._provider,
-                tools=self._tools,
-                session=self._session,
-                cwd=self._cwd,
-                system_prompt=self._resolve_system_prompt(self._session),
-            )
-
         current_prompt = prompt
 
         while True:
@@ -926,17 +845,10 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             if self._interrupt_requested:
                 self._cancel_event.set()
 
-            model_info = get_model(self._model, self._model_provider)
-            self._agent.provider = self._provider
-            self._agent.session = self._session
-            self._agent.tools = self._tools
-            self._agent.config.context_window = model_info.context_window if model_info else None
-            self._agent.config.max_output_tokens = model_info.max_tokens if model_info else None
-
             status.set_status("working")
 
             try:
-                async for event in self._agent.run(
+                async for event in agent.run(
                     current_prompt, cancel_event=self._cancel_event, steer_event=self._steer_event
                 ):
                     notification_event = self._notification_event_type(event)

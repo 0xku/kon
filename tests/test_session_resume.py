@@ -3,6 +3,7 @@ import pytest
 from kon.core.types import AssistantMessage, TextContent
 from kon.llm.providers.mock import MockProvider
 from kon.loop import Agent
+from kon.runtime import ConversationRuntime
 from kon.session import Session
 from kon.ui.session_ui import SessionUIMixin
 
@@ -80,6 +81,18 @@ class _TestSessionApp(SessionUIMixin):
         self._agent = Agent(
             provider=provider, tools=[], session=session, cwd=self._cwd, system_prompt="old prompt"
         )
+        self._runtime = ConversationRuntime(
+            cwd=self._cwd,
+            model=self._model,
+            model_provider=self._model_provider,
+            api_key=self._api_key,
+            base_url=None,
+            thinking_level=self._thinking_level,
+            tools=self._tools,
+        )
+        self._runtime.provider = self._provider
+        self._runtime.session = self._session
+        self._runtime.agent = self._agent
         self._chat = _FakeChat()
         self._info_bar = _FakeInfoBar()
         self._status_line = _FakeStatusLine()
@@ -104,11 +117,13 @@ class _TestSessionApp(SessionUIMixin):
     def _apply_thinking_level_style(self, level: str) -> None:
         self.applied_thinking_level = level
 
-    def _get_provider_api_type(self, provider):
-        return super()._get_provider_api_type(provider)
-
-    def _create_provider(self, api_type, config):
-        raise AssertionError("_create_provider should not be called in this test")
+    def _sync_runtime_state(self) -> None:
+        self._model = self._runtime.model
+        self._model_provider = self._runtime.model_provider
+        self._thinking_level = self._runtime.thinking_level
+        self._provider = self._runtime.provider
+        self._session = self._runtime.session
+        self._agent = self._runtime.agent
 
 
 @pytest.mark.asyncio

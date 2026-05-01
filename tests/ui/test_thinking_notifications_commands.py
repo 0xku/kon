@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any, ClassVar, cast
 
 from kon import reset_config
+from kon.runtime import ConversationRuntime
 from kon.ui.commands import CommandsMixin
 from kon.ui.floating_list import ListItem
 from kon.ui.selection_mode import SelectionMode
@@ -83,6 +84,17 @@ class FakeCommands(CommandsMixin):
         self._session = cast(Any, FakeSession())
         self._thinking_level = "low"
         self._selection_mode = None
+        self._runtime = ConversationRuntime(
+            cwd=".",
+            model="fake-model",
+            model_provider="fake",
+            api_key=None,
+            base_url=None,
+            thinking_level=self._thinking_level,
+            tools=[],
+        )
+        self._runtime.provider = self._provider
+        self._runtime.session = self._session
         self.applied_thinking_levels: list[str] = []
 
     def query_one(self, selector, widget_type):
@@ -98,6 +110,11 @@ class FakeCommands(CommandsMixin):
 
     def _apply_thinking_level_style(self, level: str) -> None:
         self.applied_thinking_levels.append(level)
+
+    def _sync_runtime_state(self) -> None:
+        self._provider = self._runtime.provider
+        self._session = self._runtime.session
+        self._thinking_level = self._runtime.thinking_level
 
 
 def test_thinking_command_with_argument_updates_current_session_only():

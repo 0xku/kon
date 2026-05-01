@@ -81,7 +81,7 @@ class ModelChangeEntry(EntryBase):
 class CompactionEntry(EntryBase):
     type: Literal["compaction"] = "compaction"
     summary: str
-    first_kept_entry_id: str
+    first_kept_entry_id: str  # Retained for compaction metadata; messages use entry order.
     tokens_before: int
     details: dict[str, Any] | None = None
 
@@ -401,7 +401,7 @@ class Session:
         # Build compacted message list:
         # 1. Synthetic user message asking "what did we do so far?"
         # 2. Assistant message with the compaction summary
-        # 3. All MessageEntry entries after first_kept_entry_id
+        # 3. All MessageEntry entries after the compaction entry
         result: list[Message] = [
             UserMessage(content="What did we do so far?"),
             AssistantMessage(

@@ -1,6 +1,6 @@
 from kon.llm import resolve_provider_api_type
 from kon.llm.models import ApiType
-from kon.ui.app import _COPILOT_API_TYPES, _default_base_url_for_api
+from kon.runtime import _COPILOT_API_TYPES, default_base_url_for_api
 
 
 def test_resolve_provider_api_type_known_provider():
@@ -18,13 +18,13 @@ def test_resolve_provider_api_type_unknown_provider():
         raise AssertionError("Expected ValueError for invalid provider")
 
 
-def test_default_base_url_for_api_openai_completions(monkeypatch):
+def testdefault_base_url_for_api_openai_completions(monkeypatch):
     monkeypatch.setenv("KON_BASE_URL", "http://localhost:1234/v1")
-    assert _default_base_url_for_api(ApiType.OPENAI_COMPLETIONS) == "http://localhost:1234/v1"
+    assert default_base_url_for_api(ApiType.OPENAI_COMPLETIONS) == "http://localhost:1234/v1"
 
 
-def test_default_base_url_for_api_non_openai_completions():
-    assert _default_base_url_for_api(ApiType.ANTHROPIC_COPILOT) is None
+def testdefault_base_url_for_api_non_openai_completions():
+    assert default_base_url_for_api(ApiType.ANTHROPIC_COPILOT) is None
 
 
 def test_copilot_api_types_only_include_copilot_apis():

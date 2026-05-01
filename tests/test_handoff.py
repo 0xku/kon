@@ -8,6 +8,7 @@ from kon.core.types import AssistantMessage, StopReason, TextContent, TextPart, 
 from kon.llm.base import LLMStream
 from kon.llm.providers.mock import MockProvider
 from kon.loop import build_system_prompt
+from kon.runtime import ConversationRuntime
 from kon.session import CustomMessageEntry, Session
 from kon.ui.commands import CommandsMixin
 
@@ -60,6 +61,18 @@ class _TestCommandsApp(CommandsMixin):
         )
         self._is_running = False
         self._tools = []
+        self._runtime = ConversationRuntime(
+            cwd=self._cwd,
+            model=self._model,
+            model_provider=self._model_provider,
+            api_key=self._api_key,
+            base_url=None,
+            thinking_level=self._thinking_level,
+            tools=self._tools,
+        )
+        self._runtime.provider = self._provider
+        self._runtime.session = self._session
+        self._runtime.agent = self._agent
         self._chat = chat
         self._input_box = input_box
         self._info_bar = info_bar or _FakeInfoBar()
@@ -78,6 +91,14 @@ class _TestCommandsApp(CommandsMixin):
 
     def run_worker(self, coro, exclusive=False):
         return coro
+
+    def _sync_runtime_state(self) -> None:
+        self._model = self._runtime.model
+        self._model_provider = self._runtime.model_provider
+        self._thinking_level = self._runtime.thinking_level
+        self._provider = self._runtime.provider
+        self._session = self._runtime.session
+        self._agent = self._runtime.agent
 
     def _sync_slash_commands(self) -> None:
         return None
@@ -184,7 +205,7 @@ async def test_do_handoff_creates_link_entries_and_prefills_prompt(monkeypatch):
     async def _fake_handoff(messages, _provider_obj, system_prompt, query):
         return "Task: Implement phase two"
 
-    monkeypatch.setattr("kon.ui.commands.generate_handoff_prompt", _fake_handoff)
+    monkeypatch.setattr("kon.runtime.generate_handoff_prompt", _fake_handoff)
 
     original_session = app._session
     assert original_session is not None
@@ -267,7 +288,7 @@ def test_clear_conversation_creates_session_with_persisted_system_prompt(monkeyp
             tools=tools,
         )
 
-    monkeypatch.setattr("kon.ui.commands.Session.create", _fake_create)
+    monkeypatch.setattr("kon.runtime.Session.create", _fake_create)
 
     session = Session.in_memory("/test/project", provider="mock", model_id="mock-model")
     provider = MockProvider()

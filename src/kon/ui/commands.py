@@ -8,23 +8,15 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from kon import config, set_notifications_mode, set_permission_mode, set_theme
 from kon.config import NOTIFICATION_MODES, PERMISSION_MODES, NotificationMode, PermissionMode
 
-from ..core.compaction import generate_summary
-from ..core.handoff import generate_handoff_prompt
-from ..core.types import AssistantMessage
 from ..llm import (
-    ApiType,
-    BaseProvider,
-    ProviderConfig,
     clear_openai_credentials,
     get_all_models,
-    get_max_tokens,
-    get_model,
     is_copilot_logged_in,
     is_openai_logged_in,
     openai_login,
 )
-from ..loop import build_system_prompt
-from ..session import MessageEntry, Session
+from ..runtime import ConversationRuntime
+from ..session import Session
 from ..themes import get_theme_options
 from .chat import ChatLog
 from .clipboard import copy_to_clipboard
@@ -45,18 +37,14 @@ class CommandsMixin:
     HANDOFF_FORWARD_LINK_TYPE = "handoff_forward_link"
 
     _cwd: str
-    _thinking_level: str
-    _model: str
-    _model_provider: str | None
     _api_key: str | None
-    _provider: BaseProvider | None
-    _session: Session | None
     _agent: Any
     _is_running: bool
     _selection_mode: Any
     _tools: list
     _openai_compat_auth_mode: Any
     _anthropic_compat_auth_mode: Any
+    _runtime: ConversationRuntime
 
     # Methods from App - declared for type checking
     if TYPE_CHECKING:
@@ -69,8 +57,7 @@ class CommandsMixin:
     # Methods from other mixins/main class
     if TYPE_CHECKING:
 
-        def _get_provider_api_type(self, provider: BaseProvider) -> ApiType: ...
-        def _create_provider(self, api_type: ApiType, config: ProviderConfig) -> BaseProvider: ...
+        def _sync_runtime_state(self) -> None: ...
         def _sync_slash_commands(self) -> None: ...
         def _render_session_entries(self, session: Session) -> None: ...
         def _apply_theme(self, theme_id: str) -> None: ...
@@ -170,10 +157,9 @@ Extra tools:
         chat.add_info_message(help_text)
 
     def _clear_conversation(self) -> None:
-        if self._session:
-            self._session = self._create_new_session()
-            if self._provider:
-                self._provider.config.session_id = self._session.id
+        if self._runtime.session:
+            self._runtime.new_session()
+            self._sync_runtime_state()
             info_bar = self.query_one("#info-bar", InfoBar)
             info_bar.set_tokens(0, 0, 0, 0)
             info_bar.set_file_changes({})
@@ -256,7 +242,9 @@ Extra tools:
                 parts.append("[no-vision]")
             caption = " ".join(parts)
             label = (
-                f"{m.id} ✓" if m.id == self._model and m.provider == self._model_provider else m.id
+                f"{m.id} ✓"
+                if m.id == self._runtime.model and m.provider == self._runtime.model_provider
+                else m.id
             )
             items.append(ListItem(value=m, label=label, description=caption))
 
@@ -309,38 +297,37 @@ Extra tools:
 
     def _handle_thinking_command(self, args: str) -> None:
         chat = self.query_one("#chat-log", ChatLog)
-        if self._provider is None:
+        if self._runtime.provider is None:
             chat.add_info_message("Agent not initialized", error=True)
             return
 
         requested = args.strip()
         if requested:
-            if requested in self._provider.thinking_levels:
+            if requested in self._runtime.provider.thinking_levels:
                 self._select_thinking_level(requested)
             else:
-                valid_levels = ", ".join(self._provider.thinking_levels)
+                valid_levels = ", ".join(self._runtime.provider.thinking_levels)
                 chat.add_info_message(
                     f"Invalid thinking level: {requested}. Use one of: {valid_levels}", error=True
                 )
             return
 
-        descriptions = {level: "current session only" for level in self._provider.thinking_levels}
+        descriptions = {
+            level: "current session only" for level in self._runtime.provider.thinking_levels
+        }
         self._show_selection_picker(
             self._build_choice_items(
-                self._provider.thinking_levels, self._thinking_level, descriptions
+                self._runtime.provider.thinking_levels, self._runtime.thinking_level, descriptions
             ),
             SelectionMode.THINKING,
         )
 
     def _select_thinking_level(self, level: str) -> None:
-        if self._provider is None:
+        if self._runtime.provider is None:
             return
 
-        self._provider.set_thinking_level(level)
-        self._thinking_level = level
-
-        if self._session:
-            self._session.set_thinking_level(level)
+        self._runtime.set_thinking_level(level)
+        self._sync_runtime_state()
 
         info_bar = self.query_one("#info-bar", InfoBar)
         info_bar.set_thinking_level(level)
@@ -383,43 +370,20 @@ Extra tools:
         chat = self.query_one("#chat-log", ChatLog)
         info_bar = self.query_one("#info-bar", InfoBar)
 
-        current_api_type = self._get_provider_api_type(self._provider) if self._provider else None
-
-        self._model = model.id
-        self._model_provider = model.provider
-
-        if model.api != current_api_type:
-            provider_config = ProviderConfig(
-                api_key=self._api_key,
-                base_url=model.base_url,
-                model=model.id,
-                max_tokens=get_max_tokens(model.id),
-                thinking_level=self._thinking_level,
-                provider=model.provider,
-                session_id=self._session.id if self._session else None,
-                openai_compat_auth_mode=self._openai_compat_auth_mode,
-                anthropic_compat_auth_mode=self._anthropic_compat_auth_mode,
-            )
-            try:
-                self._provider = self._create_provider(model.api, provider_config)
-            except ValueError as e:
-                chat.add_info_message(str(e), error=True)
-                return
-        elif self._provider:
-            self._provider.config.model = model.id
-            self._provider.config.base_url = model.base_url
+        try:
+            self._runtime.switch_model(model)
+        except ValueError as e:
+            chat.add_info_message(str(e), error=True)
+            return
+        self._sync_runtime_state()
 
         info_bar.set_model(model.id, model.provider)
-
-        if self._session:
-            self._session.set_model(model.provider, model.id, model.base_url)
 
         chat.add_info_message(f"Model changed to {model.id} ({model.provider})")
 
     def _new_conversation(self) -> None:
-        self._session = self._create_new_session()
-        if self._provider:
-            self._provider.config.session_id = self._session.id
+        self._runtime.new_session()
+        self._sync_runtime_state()
 
         chat = self.query_one("#chat-log", ChatLog)
         info_bar = self.query_one("#info-bar", InfoBar)
@@ -438,18 +402,20 @@ Extra tools:
 
         info_bar.set_tokens(0, 0, 0, 0)
         info_bar.set_file_changes({})
-        info_bar.set_thinking_level(self._thinking_level)
+        info_bar.set_thinking_level(self._runtime.thinking_level)
 
         chat.add_session_info(getattr(self, "VERSION", ""))
 
-        if self._agent is not None:
-            self._agent.reload_context()
-            self._agent.session = self._session
+        self._runtime.reload_context()
+        self._sync_runtime_state()
+        if self._runtime.agent is not None:
             self._sync_slash_commands()
-            # TODO: Surface self._agent.context.skill_warnings in UI
+            # TODO: Surface self._runtime.agent.context.skill_warnings in UI
             chat.add_loaded_resources(
-                context_paths=[format_path(f.path) for f in self._agent.context.agents_files],
-                skill_paths=[format_path(s.path) for s in self._agent.context.skills],
+                context_paths=[
+                    format_path(f.path) for f in self._runtime.agent.context.agents_files
+                ],
+                skill_paths=[format_path(s.path) for s in self._runtime.agent.context.skills],
             )
 
     def _handle_handoff_command(self, args: str) -> None:
@@ -459,7 +425,11 @@ Extra tools:
             chat.add_info_message("Cannot handoff while agent is running", error=True)
             return
 
-        if self._provider is None or self._session is None or self._agent is None:
+        if (
+            self._runtime.provider is None
+            or self._runtime.session is None
+            or self._runtime.agent is None
+        ):
             chat.add_info_message("Agent not initialized", error=True)
             return
 
@@ -470,7 +440,7 @@ Extra tools:
             )
             return
 
-        if not self._session.all_messages:
+        if not self._runtime.session.all_messages:
             chat.add_info_message("No conversation to handoff", error=True)
             return
 
@@ -478,33 +448,10 @@ Extra tools:
         self.run_worker(self._do_handoff(query), exclusive=False)
 
     def _resolve_system_prompt(self, session: Session | None = None) -> str:
-        return (session.system_prompt if session else None) or build_system_prompt(
-            self._cwd, tools=self._tools
-        )
+        return self._runtime.resolve_system_prompt(session)
 
     def _create_new_session(self) -> Session:
-        selected_model = get_model(self._model, self._model_provider)
-        model_provider = (
-            selected_model.provider
-            if selected_model
-            else (self._provider.name if self._provider else "openai")
-        )
-        self._model_provider = model_provider
-        session = Session.create(
-            self._cwd,
-            provider=model_provider,
-            model_id=self._model,
-            thinking_level=self._thinking_level,
-            system_prompt=self._resolve_system_prompt(),
-            tools=[t.name for t in self._tools],
-        )
-        model_base_url = (
-            selected_model.base_url
-            if selected_model
-            else (self._provider.config.base_url if self._provider else None)
-        )
-        session.append_model_change(model_provider, self._model, model_base_url)
-        return session
+        return self._runtime.create_session()
 
     async def _do_handoff(self, query: str) -> None:
         chat = self.query_one("#chat-log", ChatLog)
@@ -512,69 +459,42 @@ Extra tools:
         status = self.query_one("#status-line", StatusLine)
         input_box = self.query_one("#input-box", InputBox)
 
-        if self._provider is None or self._session is None or self._agent is None:
+        if (
+            self._runtime.provider is None
+            or self._runtime.session is None
+            or self._runtime.agent is None
+        ):
             chat.add_info_message("Agent not initialized", error=True)
             return
 
-        source_session = self._session
-
         try:
-            prompt = await generate_handoff_prompt(
-                source_session.all_messages,
-                self._provider,
-                system_prompt=self._agent.system_prompt,
-                query=query,
-            )
+            result = await self._runtime.create_handoff(query)
         except Exception as e:
             chat.show_status("Handoff failed")
             chat.add_info_message(f"Handoff failed: {e}", error=True)
             return
 
-        source_session_id = source_session.id
-        new_session = self._create_new_session()
-
-        new_session.append_custom_message(
-            self.HANDOFF_BACKLINK_TYPE,
-            f"Handoff from {source_session_id[:8]}",
-            display=False,
-            details={"target_session_id": source_session_id, "query": query},
-        )
-        source_session.append_custom_message(
-            self.HANDOFF_FORWARD_LINK_TYPE,
-            f"Handoff to {new_session.id[:8]}",
-            display=False,
-            details={"target_session_id": new_session.id, "query": query},
-        )
-
-        new_session.ensure_persisted()
-        source_session.ensure_persisted()
-
-        self._session = new_session
-        if self._provider:
-            self._provider.config.session_id = self._session.id
-        if self._agent is not None:
-            self._agent.session = self._session
-
+        self._sync_runtime_state()
         await self._reset_session_ui(chat, info_bar, status)
-        self._render_session_entries(self._session)
+        self._render_session_entries(result.new_session)
 
         input_box.clear()
-        input_box.insert(prompt)
+        input_box.insert(result.prompt)
         chat.show_status("Handoff ready")
         input_box.focus()
 
     def _show_session_info(self) -> None:
         chat = self.query_one("#chat-log", ChatLog)
-        if not self._session:
+        if not self._runtime.session:
             chat.add_info_message("No active session")
             return
 
-        session_path = self._session.session_file
+        session_path = self._runtime.session.session_file
         session_dir = str(session_path.parent) if session_path else None
         session_file = session_path.name if session_path else "(in-memory session)"
 
-        counts = self._session.message_counts()
-        token_totals = self._session.token_totals()
+        counts = self._runtime.session.message_counts()
+        token_totals = self._runtime.session.token_totals()
 
         chat.add_session_details(
             session_dir=session_dir,
@@ -623,8 +543,8 @@ Extra tools:
         session_path = Path(session_info.path)
 
         current_session_path: Path | None = None
-        if self._session and self._session.session_file is not None:
-            current_session_path = Path(self._session.session_file)
+        if self._runtime.session and self._runtime.session.session_file is not None:
+            current_session_path = Path(self._runtime.session.session_file)
 
         if current_session_path is not None and session_path == current_session_path:
             self.notify(
@@ -783,18 +703,18 @@ Extra tools:
 
         chat = self.query_one("#chat-log", ChatLog)
 
-        if not self._session:
+        if not self._runtime.session:
             chat.add_info_message("No active session to export")
             return
 
-        if not self._session.entries:
+        if not self._runtime.session.entries:
             chat.add_info_message("Session has no messages to export")
             return
 
         try:
             path = export_session_html(
                 cwd=self._cwd,
-                session_id=self._session.id,
+                session_id=self._runtime.session.id,
                 output_dir=self._cwd,
                 version=getattr(self, "VERSION", ""),
             )
@@ -805,11 +725,11 @@ Extra tools:
     def _handle_copy_command(self) -> None:
         chat = self.query_one("#chat-log", ChatLog)
 
-        if not self._session:
+        if not self._runtime.session:
             chat.add_info_message("No agent messages to copy yet", error=True)
             return
 
-        text = self._session.get_last_assistant_text()
+        text = self._runtime.session.get_last_assistant_text()
         if not text:
             chat.add_info_message("No agent messages to copy yet", error=True)
             return
@@ -824,11 +744,11 @@ Extra tools:
             chat.add_info_message("Cannot compact while agent is running", error=True)
             return
 
-        if self._provider is None or self._session is None:
+        if self._runtime.provider is None or self._runtime.session is None:
             chat.add_info_message("Agent not initialized", error=True)
             return
 
-        if not self._session.all_messages:
+        if not self._runtime.session.all_messages:
             chat.add_info_message("No conversation to compact")
             return
 
@@ -838,34 +758,13 @@ Extra tools:
     async def _do_compact(self) -> None:
         chat = self.query_one("#chat-log", ChatLog)
 
-        if self._provider is None or self._session is None:
+        if self._runtime.provider is None or self._runtime.session is None:
             chat.add_info_message("Agent not initialized", error=True)
             return
 
-        tokens_before = 0
-        for entry in reversed(self._session.entries):
-            if isinstance(entry, MessageEntry) and isinstance(entry.message, AssistantMessage):
-                usage = entry.message.usage
-                if usage is None:
-                    continue
-                tokens_before = (
-                    usage.input_tokens
-                    + usage.output_tokens
-                    + usage.cache_read_tokens
-                    + usage.cache_write_tokens
-                )
-                break
-
         try:
-            summary = await generate_summary(
-                self._session.all_messages, self._provider, system_prompt=self._agent.system_prompt
-            )
-            self._session.append_compaction(
-                summary=summary,
-                first_kept_entry_id=self._session.leaf_id or "",
-                tokens_before=tokens_before,
-            )
-            chat.add_compaction_message(tokens_before)
+            result = await self._runtime.compact_now()
+            chat.add_compaction_message(result.tokens_before)
         except Exception as e:
             chat.show_status("Compaction failed")
             chat.add_info_message(f"Compaction failed: {e}", error=True)

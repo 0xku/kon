@@ -13,8 +13,7 @@ from ..core.types import (
     ToolResultMessage,
     UserMessage,
 )
-from ..llm import ApiType, BaseProvider, ProviderConfig, get_max_tokens, get_model
-from ..loop import Agent, build_system_prompt
+from ..runtime import ConversationRuntime
 from ..session import CompactionEntry, CustomMessageEntry, MessageEntry, Session
 from ..tools import BaseTool, get_tool, tools_by_name
 from .chat import ChatLog
@@ -25,32 +24,24 @@ from .widgets import InfoBar, StatusLine, format_path
 
 class SessionUIMixin:
     _cwd: str
-    _agent: Any
     _hide_thinking: bool
-    _session: Session | None
     _current_block_type: str | None
-    _model: str
-    _model_provider: str | None
-    _thinking_level: str
     _api_key: str | None
-    _provider: BaseProvider | None
     _tools: list[BaseTool]
     _openai_compat_auth_mode: Any
     _anthropic_compat_auth_mode: Any
+    _runtime: ConversationRuntime
 
     # Methods from App - declared for type checking
     if TYPE_CHECKING:
         query_one: Any
 
     # Methods from other mixins/main class
-    def _get_provider_api_type(self, provider: BaseProvider) -> ApiType: ...
-    def _create_provider(self, api_type: ApiType, config: ProviderConfig) -> BaseProvider: ...
+    def _sync_runtime_state(self) -> None: ...
     def _apply_thinking_level_style(self, level: str) -> None: ...
 
     def _resolve_system_prompt(self, session: Session | None = None) -> str:
-        return (session.system_prompt if session else None) or build_system_prompt(
-            self._cwd, tools=self._tools
-        )
+        return self._runtime.resolve_system_prompt(session)
 
     def _extract_text_content(self, content: str | list[TextContent | ImageContent]) -> str:
         if isinstance(content, str):
@@ -190,13 +181,13 @@ class SessionUIMixin:
         input_box = self.query_one("#input-box", InputBox)
 
         try:
-            session = Session.load(session_path)
+            session = self._runtime.load_session(session_path)
         except Exception as exc:
             chat.add_info_message(f"Failed to load session: {exc}", error=True)
             input_box.focus()
             return
 
-        self._session = session
+        self._sync_runtime_state()
         self._current_block_type = None
 
         status.reset()
@@ -212,73 +203,22 @@ class SessionUIMixin:
 
         model_info = session.model
         if model_info:
-            provider, model_id, session_base_url = model_info
-            self._model = model_id
-
-            self._model_provider = provider
-            restored_model = get_model(model_id, provider)
-            restored_base_url = session_base_url or (
-                restored_model.base_url if restored_model else None
-            )
-            if restored_model and self._provider:
-                current_api_type = self._get_provider_api_type(self._provider)
-                if restored_model.api != current_api_type:
-                    provider_config = ProviderConfig(
-                        api_key=self._api_key,
-                        base_url=restored_base_url,
-                        model=model_id,
-                        max_tokens=get_max_tokens(model_id),
-                        thinking_level=self._thinking_level,
-                        provider=provider,
-                        session_id=session.id,
-                        openai_compat_auth_mode=self._openai_compat_auth_mode,
-                        anthropic_compat_auth_mode=self._anthropic_compat_auth_mode,
-                    )
-                    try:
-                        self._provider = self._create_provider(restored_model.api, provider_config)
-                    except ValueError as e:
-                        chat.add_info_message(str(e), error=True)
-                else:
-                    self._provider.config.model = model_id
-                    self._provider.config.base_url = restored_base_url
-                    self._provider.config.session_id = session.id
-            elif self._provider:
-                self._provider.config.model = model_id
-                if restored_base_url:
-                    self._provider.config.base_url = restored_base_url
-                self._provider.config.session_id = session.id
-
+            provider, model_id, _ = model_info
             info_bar.set_model(model_id, provider)
 
-        thinking_level = session.thinking_level
-        if self._provider:
-            valid_levels = self._provider.thinking_levels
-            if valid_levels and thinking_level not in valid_levels:
-                thinking_level = valid_levels[0]
-            self._provider.set_thinking_level(thinking_level)
-        self._thinking_level = thinking_level
-        info_bar.set_thinking_level(thinking_level)
-        self._apply_thinking_level_style(thinking_level)
-
-        if self._provider is not None:
-            self._agent = Agent(
-                provider=self._provider,
-                tools=self._tools,
-                session=session,
-                cwd=self._cwd,
-                system_prompt=self._resolve_system_prompt(session),
-            )
-        elif self._agent is not None:
-            self._agent.session = session
+        info_bar.set_thinking_level(self._runtime.thinking_level)
+        self._apply_thinking_level_style(self._runtime.thinking_level)
 
         await chat.remove_all_children()
 
         chat.add_session_info(getattr(self, "VERSION", ""))
 
-        if self._agent:
+        if self._runtime.agent:
             chat.add_loaded_resources(
-                context_paths=[format_path(f.path) for f in self._agent.context.agents_files],
-                skill_paths=[format_path(s.path) for s in self._agent.context.skills],
+                context_paths=[
+                    format_path(f.path) for f in self._runtime.agent.context.agents_files
+                ],
+                skill_paths=[format_path(s.path) for s in self._runtime.agent.context.skills],
             )
 
         self._render_session_entries(session)

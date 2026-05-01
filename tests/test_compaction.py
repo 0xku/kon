@@ -15,6 +15,7 @@ from kon.core.types import (
 )
 from kon.llm.providers import MockProvider
 from kon.loop import Agent, AgentConfig
+from kon.runtime import ConversationRuntime
 from kon.session import CompactionEntry, Session
 from kon.ui.commands import CommandsMixin
 
@@ -330,10 +331,27 @@ class _TestCommandsApp(CommandsMixin):
         self._agent = SimpleNamespace(system_prompt=system_prompt)
         self._is_running = False
         self._chat = chat
+        self._runtime = ConversationRuntime(
+            cwd=str(session.cwd),
+            model="mock-model",
+            model_provider="mock",
+            api_key=None,
+            base_url=None,
+            thinking_level="high",
+            tools=[],
+        )
+        self._runtime.provider = self._provider
+        self._runtime.session = self._session
+        self._runtime.agent = self._agent
 
     def query_one(self, selector: str, cls):
         assert selector == "#chat-log"
         return self._chat
+
+    def _sync_runtime_state(self) -> None:
+        self._provider = self._runtime.provider
+        self._session = self._runtime.session
+        self._agent = self._runtime.agent
 
 
 class TestCompactionUsageBacktracking:
@@ -365,7 +383,7 @@ class TestCompactionUsageBacktracking:
         async def _fake_summary(*args, **kwargs):
             return "summary"
 
-        monkeypatch.setattr("kon.ui.commands.generate_summary", _fake_summary)
+        monkeypatch.setattr("kon.runtime.generate_summary", _fake_summary)
 
         await app._do_compact()
 
