@@ -43,7 +43,7 @@ def _append_aligned_section(
     max_key_len = max(len(k) for k, _ in rows)
     for key, value in rows:
         padded_key = key.ljust(max_key_len)
-        text.append(f"  {padded_key} ", style=dim_color)
+        text.append(f"  {padded_key}  ", style=dim_color)
         text.append(f"{value}\n", style=muted_color)
 
 
