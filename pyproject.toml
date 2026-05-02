@@ -14,7 +14,7 @@ default = true
 
 [project]
 name = "kon-coding-agent"
-version = "0.3.6"
+version = "0.3.7"
 description = "Minimal coding agent"
 readme = "README.md"
 requires-python = ">=3.12"

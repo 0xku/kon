@@ -85,7 +85,7 @@ _CHANGELOG_URL = "https://github.com/0xku/kon/blob/main/CHANGELOG.md"
 try:
     VERSION = version(_PYPI_PACKAGE_NAME)
 except PackageNotFoundError:
-    VERSION = "0.3.6"
+    VERSION = "0.3.7"
 
 _NOTIFY_EVENTS = (AgentEndEvent, ToolApprovalEvent)
 
