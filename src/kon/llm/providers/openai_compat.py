@@ -14,7 +14,7 @@ def _hostname(base_url: str | None) -> str | None:
 def supports_developer_role(provider: str | None, base_url: str | None) -> bool:
     provider_name = (provider or "").strip().lower()
 
-    if provider_name in {"zai", "zhipu", "github-copilot"}:
+    if provider_name in {"zai", "zhipu", "github-copilot", "deepseek"}:
         return False
 
     hostname = _hostname(base_url)

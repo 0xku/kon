@@ -80,3 +80,10 @@ mode = "prompt" # "prompt" or "auto"
 enabled = false
 # Audio playback volume from 0.0 (muted) to 1.0 (full volume).
 volume = 0.5
+
+# Example: DeepSeek provider
+# export DEEPSEEK_API_KEY="sk-your-api-key"
+#
+# Then set in [llm]:
+# default_provider = "deepseek"
+# default_model = "deepseek-v4-flash"

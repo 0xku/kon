@@ -21,6 +21,7 @@ API_TYPE_TO_PROVIDER_CLASS: dict[ApiType, type[BaseProvider]] = {
 PROVIDER_API_BY_NAME: dict[str, ApiType] = {
     "openai": ApiType.OPENAI_COMPLETIONS,
     "zhipu": ApiType.OPENAI_COMPLETIONS,
+    "deepseek": ApiType.OPENAI_COMPLETIONS,
     "github-copilot": ApiType.GITHUB_COPILOT,
     "openai-responses": ApiType.OPENAI_RESPONSES,
     "openai-codex": ApiType.OPENAI_CODEX_RESPONSES,

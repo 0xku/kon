@@ -57,6 +57,25 @@ MODELS: dict[str, Model] = {
         supports_thinking=True,
         vision_model="glm-4v-flash",
     ),
+    # DeepSeek models (OpenAI-compatible Chat Completions API)
+    "deepseek-v4-flash": Model(
+        id="deepseek-v4-flash",
+        provider="deepseek",
+        api=ApiType.OPENAI_COMPLETIONS,
+        base_url="https://api.deepseek.com",
+        max_tokens=8192,
+        supports_images=False,
+        supports_thinking=True,
+    ),
+    "deepseek-v4-pro": Model(
+        id="deepseek-v4-pro",
+        provider="deepseek",
+        api=ApiType.OPENAI_COMPLETIONS,
+        base_url="https://api.deepseek.com",
+        max_tokens=8192,
+        supports_images=False,
+        supports_thinking=True,
+    ),
     # GitHub Copilot models - Claude (uses Anthropic Messages API for thinking support)
     "claude-sonnet-4.6-copilot": Model(
         id="claude-sonnet-4.6",
