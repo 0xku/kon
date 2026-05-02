@@ -105,7 +105,9 @@ async def test_execute_shell_command_basic():
     mock_result.ui_details = None
     mock_result.ui_summary = None
 
-    with patch.object(BashTool, "execute", new_callable=AsyncMock, return_value=mock_result):
+    with patch.object(
+        BashTool, "execute", new_callable=AsyncMock, return_value=mock_result
+    ) as execute:
         # Call the method
         await Kon._execute_shell_command(app, "ls -la", False, True)
 
@@ -119,6 +121,7 @@ async def test_execute_shell_command_basic():
     # Verify tool block result was set
     tool_block = mock_chat.start_tool.return_value
     tool_block.set_result.assert_called_once_with("test output", None, True, markup=False)
+    assert execute.call_args.kwargs["inline_output"] is True
 
     # Verify app state was reset
     assert app._is_running is False
@@ -147,7 +150,9 @@ async def test_execute_shell_command_with_llm():
     # Mock the _run_agent method
     app._run_agent = AsyncMock()
 
-    with patch.object(BashTool, "execute", new_callable=AsyncMock, return_value=mock_result):
+    with patch.object(
+        BashTool, "execute", new_callable=AsyncMock, return_value=mock_result
+    ) as execute:
         # Call the method with send_to_llm=True
         await Kon._execute_shell_command(app, "git status", True, False)
 
@@ -158,6 +163,7 @@ async def test_execute_shell_command_with_llm():
     assert "git status output" in call_args
     assert "What would you like me to do with this?" in call_args
     assert app._interrupt_requested is False
+    assert execute.call_args.kwargs["inline_output"] is False
 
 
 @pytest.mark.asyncio

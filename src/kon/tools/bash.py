@@ -81,9 +81,12 @@ def _truncate_tail(text: str) -> TruncationResult:
 
     for i in range(total_lines - 1, -1, -1):
         line = lines[i]
-        line_bytes = len(line.encode("utf-8")) + (1 if output_lines else 0)
+        encoded_line = line.encode("utf-8")
+        line_bytes = len(encoded_line) + (1 if output_lines else 0)
 
         if output_bytes + line_bytes > MAX_OUTPUT_BYTES:
+            if not output_lines:
+                output_lines.append(encoded_line[-MAX_OUTPUT_BYTES:].decode("utf-8", "ignore"))
             break
         if len(output_lines) >= MAX_OUTPUT_LINES:
             break
@@ -186,7 +189,7 @@ class BashTool(BaseTool):
         self,
         params: BashParams,
         cancel_event: asyncio.Event | None = None,
-        show_full_output: bool = False,
+        inline_output: bool = False,
     ) -> ToolResult:
         if not params.command.strip():
             msg = "Command cannot be empty"
@@ -288,28 +291,23 @@ class BashTool(BaseTool):
                 full_output += f"\n[stderr]\n{stderr}" if full_output else f"[stderr]\n{stderr}"
             full_output = full_output.rstrip()
 
-            no_of_output_line = len(full_output.split("\n"))
-
-            # Apply truncation unless show_full_output is True
-            if show_full_output:
-                trunc = TruncationResult(full_output, False, no_of_output_line, no_of_output_line)
-            else:
-                trunc = _truncate_tail(full_output)
-                temp_file_path = None
-                if trunc.truncated:
+            trunc = _truncate_tail(full_output)
+            if trunc.truncated:
+                marker = (
+                    f"\n\n[output truncated to last {trunc.lines_kept} lines "
+                    f"of {trunc.total_lines}"
+                )
+                if inline_output:
+                    marker += "]"
+                else:
                     temp_file_path = _write_full_output_to_temp(full_output)
-                    trunc.content += (
-                        f"\n\n[output truncated to last {trunc.lines_kept} lines "
-                        f"of {trunc.total_lines}; full output: {temp_file_path}]"
-                    )
+                    marker += f"; full output: {temp_file_path}]"
+                trunc.content += marker
 
             result_text = trunc.content or "(no output)"
 
-            # Use unlimited lines for display when show_full_output is True
-            if show_full_output:
-                display_text = self._format_display(trunc.content, max_lines=no_of_output_line)
-            else:
-                display_text = self._format_display(trunc.content)
+            display_max = sys.maxsize if inline_output else 5
+            display_text = self._format_display(trunc.content, max_lines=display_max)
 
             non_empty_lines = [line for line in (trunc.content or "").split("\n") if line.strip()]
             is_single_line = len(non_empty_lines) <= 1
