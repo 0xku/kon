@@ -1,5 +1,6 @@
 import asyncio
 import ipaddress
+import socket
 from urllib.parse import urlparse
 
 from curl_cffi import AsyncSession, CurlOpt
@@ -39,16 +40,79 @@ _HIDDEN_XPATH = (
 )
 
 
+class _FetchRefusalError(Exception):
+    pass
+
+
 def _looks_like_challenge(html: str) -> bool:
     head = html[:4096].lower()
     return any(sig in head for sig in _CHALLENGE_SIGNATURES)
 
 
-def _is_link_local(ip: str) -> bool:
+_WELL_KNOWN_NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+
+
+def _is_public_ip(ip: str) -> bool:
     try:
-        return ipaddress.ip_address(ip).is_link_local
+        parsed = ipaddress.ip_address(ip)
     except ValueError:
-        return True  # fail closed
+        return False
+    if not parsed.is_global or parsed.is_multicast:
+        return False
+    # NAT64 is marked global but can wrap a private IPv4 (e.g., 169.254.169.254).
+    if isinstance(parsed, ipaddress.IPv6Address) and parsed in _WELL_KNOWN_NAT64_PREFIX:
+        mapped_ipv4 = ipaddress.IPv4Address(int(parsed) & 0xFFFFFFFF)
+        return mapped_ipv4.is_global and not mapped_ipv4.is_multicast
+    return True
+
+
+def _parse_fetch_url(url: str) -> tuple[str, int]:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise _FetchRefusalError(f"unsupported scheme {parsed.scheme!r}")
+    if not parsed.hostname:
+        raise _FetchRefusalError("missing host")
+    try:
+        port = parsed.port
+    except ValueError:
+        raise _FetchRefusalError("invalid port") from None
+    return parsed.hostname, port or (443 if parsed.scheme == "https" else 80)
+
+
+async def _resolve_host_addresses(host: str, port: int) -> list[str]:
+    loop = asyncio.get_running_loop()
+    results = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    return list(dict.fromkeys(sockaddr[0] for *_, sockaddr in results))
+
+
+def _curl_resolve_entry(host: str, port: int, addresses: list[str]) -> str:
+    formatted_addresses = ",".join(
+        f"[{ip}]" if ipaddress.ip_address(ip).version == 6 else ip for ip in addresses
+    )
+    return f"{host}:{port}:{formatted_addresses}"
+
+
+async def _prepare_curl_resolve(url: str, cancel_event: asyncio.Event | None = None) -> list[str]:
+    host, port = _parse_fetch_url(url)
+
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        resolve_task = asyncio.create_task(_resolve_host_addresses(host, port))
+        try:
+            addresses = await await_task_or_cancel(resolve_task, cancel_event)
+        except ToolCancelledError:
+            raise
+        except Exception:
+            raise _FetchRefusalError("host did not resolve") from None
+        public_addresses = [ip for ip in addresses if _is_public_ip(ip)]
+        if not public_addresses:
+            raise _FetchRefusalError("host did not resolve to a public address") from None
+        return [_curl_resolve_entry(host, port, public_addresses)]
+
+    if not _is_public_ip(host):
+        raise _FetchRefusalError(f"non-public address ({host})")
+    return []
 
 
 def _extract_markdown(html: str) -> str | None:
@@ -89,16 +153,25 @@ class WebFetchTool(BaseTool):
     async def execute(
         self, params: WebFetchParams, cancel_event: asyncio.Event | None = None
     ) -> ToolResult:
-        scheme = urlparse(params.url).scheme
-        if scheme not in ("http", "https"):
-            msg = f"Refused: unsupported scheme {scheme!r}"
+        try:
+            curl_resolve = await _prepare_curl_resolve(params.url, cancel_event)
+        except ToolCancelledError:
+            return ToolResult(success=False, result="Fetch aborted")
+        except _FetchRefusalError as e:
+            msg = f"Refused: {e}"
             return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
 
         try:
+            curl_options = {
+                CurlOpt.MAXFILESIZE_LARGE: MAX_RESPONSE_BYTES,
+                CurlOpt.PROTOCOLS_STR: "http,https",
+                CurlOpt.REDIR_PROTOCOLS_STR: "http,https",
+            }
+            if curl_resolve:
+                curl_options[CurlOpt.RESOLVE] = curl_resolve
+
             async with AsyncSession(
-                impersonate="chrome131",
-                allow_redirects="safe",
-                curl_options={CurlOpt.MAXFILESIZE_LARGE: MAX_RESPONSE_BYTES},
+                impersonate="chrome131", allow_redirects="safe", curl_options=curl_options
             ) as session:
                 fetch_task = asyncio.create_task(session.get(params.url, timeout=REQUEST_TIMEOUT))
                 response = await await_task_or_cancel(fetch_task, cancel_event)
@@ -108,8 +181,8 @@ class WebFetchTool(BaseTool):
             msg = f"Fetch failed: {e}"
             return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
 
-        if _is_link_local(response.primary_ip):
-            msg = f"Refused: link-local address ({response.primary_ip or 'unknown'})"
+        if not _is_public_ip(response.primary_ip):
+            msg = f"Refused: non-public address ({response.primary_ip or 'unknown'})"
             return ToolResult(success=False, result=msg, ui_summary=f"[red]{msg}[/red]")
 
         # Catches decompression bombs (MAXFILESIZE_LARGE only bounds wire bytes).
