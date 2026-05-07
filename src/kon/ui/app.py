@@ -88,6 +88,7 @@ except PackageNotFoundError:
     VERSION = "0.3.7"
 
 _NOTIFY_EVENTS = (AgentEndEvent, ToolApprovalEvent)
+_GIT_BRANCH_REFRESH_INTERVAL_SECONDS = 1.0
 
 
 class Kon(CommandsMixin, SessionUIMixin, App[None]):
@@ -400,6 +401,8 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             info_bar.set_file_changes(self._runtime.session.file_changes_summary())
             chat.add_info_message("Resumed session")
 
+        self.set_interval(_GIT_BRANCH_REFRESH_INTERVAL_SECONDS, self._refresh_git_branch)
+
         self._startup_complete = True
         self._show_pending_update_notice_if_idle()
         input_box.focus()
@@ -407,6 +410,10 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         import gc
 
         gc.freeze()
+
+    def _refresh_git_branch(self) -> None:
+        info_bar = self.query_one("#info-bar", InfoBar)
+        info_bar.refresh_git_branch()
 
     async def _collect_file_paths(self) -> None:
         """Collect file paths using glob (fallback when fd is unavailable)."""

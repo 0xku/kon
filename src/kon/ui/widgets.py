@@ -1,5 +1,4 @@
 import os
-import subprocess
 import time
 from typing import ClassVar
 
@@ -14,6 +13,7 @@ from textual.widgets import Label
 
 from kon import config
 from kon.config import PermissionMode
+from kon.git_branch import resolve_git_branch
 
 from .formatting import format_tokens
 
@@ -26,20 +26,7 @@ def format_path(path: str) -> str:
 
 
 def get_git_branch(cwd: str) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            timeout=1,
-        )
-        if result.returncode == 0:
-            branch = result.stdout.strip()
-            return branch if branch else ""
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-        pass
-    return ""
+    return resolve_git_branch(cwd)
 
 
 class FileChangesModal(ModalScreen[None]):
@@ -145,6 +132,7 @@ class InfoBar(Vertical):
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
+        self._raw_cwd = cwd
         self._cwd = format_path(cwd)
         self._git_branch = get_git_branch(cwd)
         self._model = model
@@ -294,6 +282,15 @@ class InfoBar(Vertical):
         self._model = model
         self._model_provider = provider
         self._label_row2_right.update(self._format_row2_right())
+
+    def set_git_branch(self, branch: str) -> None:
+        if self._git_branch == branch:
+            return
+        self._git_branch = branch
+        self.query_one("#info-cwd", Label).update(self._format_row1_left(), layout=False)
+
+    def refresh_git_branch(self) -> None:
+        self.set_git_branch(get_git_branch(self._raw_cwd))
 
     def set_thinking_level(self, thinking_level: str) -> None:
         self._thinking_level = thinking_level

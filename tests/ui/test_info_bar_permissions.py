@@ -49,3 +49,14 @@ def test_info_bar_updates_permission_mode_without_layout():
 
     assert cast(Any, label.content).plain == "✓✓ auto"
     assert label.layout_values == [False]
+
+
+def test_info_bar_updates_git_branch_without_layout(monkeypatch):
+    info_bar = InfoBar("/tmp", "model")
+    label = _FakeLabel()
+    monkeypatch.setattr(info_bar, "query_one", lambda *args: label)
+
+    info_bar.set_git_branch("feature")
+
+    assert cast(Any, label.content).plain == "/tmp (⌥ feature)"
+    assert label.layout_values == [False]
