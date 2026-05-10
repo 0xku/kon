@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/kon-screenshot.png" alt="Kon terminal UI screenshot" width="720" />
+  <img src="docs/images/kon-screenshot.png" alt="Kon terminal UI screenshot" width="700" />
 </p>
 
 Kon is a minimal coding agent focused on a tiny core prompt, a small built-in toolset, and project-specific context layered on top only when you want it. The default system prompt stays **under 270 tokens**, and even including the built-in tool descriptions and parameter schemas, the fixed harness stays at about **~1,000 tokens**. The core experience is built around just **6 default tools** plus **2 optional web tools**.
