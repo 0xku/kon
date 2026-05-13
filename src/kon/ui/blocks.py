@@ -397,7 +397,12 @@ class ToolBlock(Static):
         self._render_result_output()
 
     def _render_result_output(self) -> None:
-        output = self.query_one("#tool-output", Label)
+        # Check if the output widget exists before trying to query it
+        # (it may not exist if the tool is still pending and compose hasn't run)
+        try:
+            output = self.query_one("#tool-output", Label)
+        except Exception:
+            return
         ui_details = (
             self._ui_details_full if self._expanded and self._ui_details_full else self._ui_details
         )
