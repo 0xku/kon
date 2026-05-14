@@ -144,6 +144,38 @@ async def test_stream_emits_stream_error_and_skips_fallback_on_mid_stream_ws_fai
 
 
 @pytest.mark.asyncio
+async def test_stream_propagates_non_codex_exception_from_websocket_setup(monkeypatch):
+    provider = OpenAICodexResponsesProvider(
+        ProviderConfig(session_id="session-bug", model="gpt-5.4")
+    )
+
+    async def buggy_websocket(*args, **kwargs):
+        raise KeyError("oops")
+        yield
+
+    def sse_events(*args, **kwargs):
+        pytest.fail("SSE fallback should not be invoked")
+
+    monkeypatch.setattr(provider, "_stream_websocket_events", buggy_websocket)
+    monkeypatch.setattr(provider, "_stream_sse_events", sse_events)
+
+    with pytest.raises(KeyError, match="oops"):
+        async for _ in provider._stream_codex(
+            token="t",
+            account_id="a",
+            messages=[],
+            system_prompt=None,
+            tools=None,
+            temperature=None,
+            max_tokens=None,
+            llm_stream=LLMStream(),
+        ):
+            pass
+
+    assert "session-bug" not in _WS_FALLBACK_SESSIONS
+
+
+@pytest.mark.asyncio
 async def test_process_codex_events_routes_parallel_function_call_deltas_by_item_id():
     events: list[dict[str, Any]] = [
         {
