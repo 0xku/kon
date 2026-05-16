@@ -37,38 +37,82 @@ def stylize_badge_markers(text: Text, markers: Iterable[str]) -> None:
 
 
 class _StreamingMarkdownMixin:
-    """Line-buffered incremental markdown rendering for streaming blocks.
+    """Line-buffered markdown with smooth partial-line preview.
 
-    Buffers incoming chunks until a newline arrives, then re-renders all
-    completed lines as a single markdown document. Rendering the full
-    accumulated text each time preserves block-level structure (paragraph
-    spacing, headings, etc.) that would be lost if chunks were rendered
-    independently and stitched together.
+    Completed lines are committed through Kon's Rich markdown formatter so block-level
+    structure stays stable. The current unfinished line is rendered as a plain-text
+    tail with a small cursor, then coalesced into the next refresh frame so fast
+    token streams don't trigger one layout pass per token.
     """
 
     _pending: str
     _completed: str
+    _completed_display: Text
+    _stream_update_pending: bool
+    _stream_finalized: bool
 
     def _init_streaming(self) -> None:
         self._pending = ""
         self._completed = ""
+        self._completed_display = Text()
+        self._stream_update_pending = False
+        self._stream_finalized = False
 
-    def _append_streaming(self, text: str) -> Text | None:
+    def _streaming_update_label(self, display: Text) -> None:
+        raise NotImplementedError
+
+    def _streaming_pending_style(self) -> str | None:
+        return None
+
+    def _refresh_completed_display(self) -> None:
+        self._completed_display = format_markdown(self._completed) if self._completed else Text()
+
+    def _render_streaming_display(self) -> Text:
+        display = self._completed_display.copy()
+        completed_needs_separator = self._completed.endswith("\n") or self._completed.endswith(
+            "\r"
+        )
+
+        if self._pending:
+            if completed_needs_separator and display.plain:
+                display.append("\n")
+            display.append(self._pending, style=self._streaming_pending_style())
+
+        if not self._stream_finalized:
+            if completed_needs_separator and not self._pending and display.plain:
+                display.append("\n")
+            display.append("▌", style=f"{config.ui.colors.dim} blink")
+
+        return display
+
+    def _schedule_streaming_update(self) -> None:
+        if self._stream_update_pending:
+            return
+        self._stream_update_pending = True
+        self.call_after_refresh(self._flush_streaming_update)
+
+    def _flush_streaming_update(self) -> None:
+        self._stream_update_pending = False
+        self._streaming_update_label(self._render_streaming_display())
+
+    def _append_streaming(self, text: str) -> None:
         self._pending += text
 
         last_nl = self._pending.rfind("\n")
-        if last_nl == -1:
-            return None
+        if last_nl != -1:
+            self._completed += self._pending[: last_nl + 1]
+            self._pending = self._pending[last_nl + 1 :]
+            self._refresh_completed_display()
 
-        self._completed += self._pending[: last_nl + 1]
-        self._pending = self._pending[last_nl + 1 :]
-        return format_markdown(self._completed)
+        self._schedule_streaming_update()
 
     def _flush_streaming(self) -> Text:
+        self._stream_finalized = True
         if self._pending:
             self._completed += self._pending
             self._pending = ""
-        return format_markdown(self._completed)
+        self._refresh_completed_display()
+        return self._render_streaming_display()
 
 
 class ThinkingBlock(_StreamingMarkdownMixin, Static):
@@ -105,10 +149,15 @@ class ThinkingBlock(_StreamingMarkdownMixin, Static):
             text.append(f" ... ({len(lines) - 1} more lines)", style=style)
         return text
 
+    def _streaming_update_label(self, display: Text) -> None:
+        self.label.update(display)
+
+    def _streaming_pending_style(self) -> str | None:
+        return f"{config.ui.colors.dim} italic"
+
     async def append(self, text: str) -> None:
         self._content += text
-        if display := self._append_streaming(text):
-            self.label.update(display)
+        self._append_streaming(text)
 
     def finalize(self) -> None:
         if self._content and not self._finalized:
@@ -161,10 +210,12 @@ class ContentBlock(_StreamingMarkdownMixin, Static):
             self._label = self.query_one("#content-text", Label)
         return self._label
 
+    def _streaming_update_label(self, display: Text) -> None:
+        self.label.update(display)
+
     async def append(self, text: str) -> None:
         self._content += text
-        if display := self._append_streaming(text):
-            self.label.update(display)
+        self._append_streaming(text)
 
     def finalize(self) -> None:
         if self._content and not self._finalized:
