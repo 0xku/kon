@@ -142,9 +142,21 @@ Screen {{
 }}
 
 #tool-output,
-.tool-output {{
+.tool-output,
+#tool-images,
+.tool-images {{
     color: {colors.dim};
-    padding: 0 0 0 2;
+    padding: 1 0 0 2;
+}}
+
+#tool-images.-hidden {{
+    display: none;
+    height: 0;
+}}
+
+.tool-image {{
+    width: 60;
+    height: auto;
 }}
 
 .tool-block.-with-details {{

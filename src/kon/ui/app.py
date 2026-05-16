@@ -23,7 +23,7 @@ from ..context.skills import (
     merge_registered_skills,
     render_skill_prompt,
 )
-from ..core.types import StopReason
+from ..core.types import ImageContent, StopReason
 from ..events import (
     AgentEndEvent,
     AgentStartEvent,
@@ -1091,6 +1091,9 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                                 if ui_summary is None and ui_details is None and r.content:
                                     ui_details, ui_details_full = self._format_tool_result_text(r)
                                 success = not r.is_error
+                                images = [
+                                    part for part in r.content if isinstance(part, ImageContent)
+                                ]
                                 chat.set_tool_result(
                                     id,
                                     ui_summary,
@@ -1098,6 +1101,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
                                     success,
                                     markup=markup,
                                     ui_details_full=ui_details_full,
+                                    images=images or None,
                                 )
                             if fc:
                                 info_bar.update_file_changes(fc.path, fc.added, fc.removed)

@@ -115,6 +115,7 @@ class SessionUIMixin:
                     if ui_summary is None and ui_details is None:
                         ui_details, ui_details_full = self._format_tool_result_text(message)
 
+                    images = [part for part in message.content if isinstance(part, ImageContent)]
                     chat.set_tool_result(
                         tool_id,
                         ui_summary,
@@ -122,6 +123,7 @@ class SessionUIMixin:
                         not message.is_error,
                         markup=markup,
                         ui_details_full=ui_details_full,
+                        images=images or None,
                     )
             elif isinstance(entry, CompactionEntry):
                 chat.add_compaction_message(entry.tokens_before)

@@ -8,11 +8,14 @@ from textual import events
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.widgets import Label, Static
+from textual_image.widget import Image as TextualImage
 
 from kon import config
+from kon.core.types import ImageContent
 from kon.permissions import ApprovalResponse
 
 from .formatting import format_markdown, strip_markdown_for_collapsed_text
+from .terminal_image import image_content_to_pil, image_fallback
 
 _UPDATE_COMMAND = "uv tool upgrade kon-coding-agent"
 
@@ -262,6 +265,7 @@ class ToolBlock(Static):
         self._ui_summary: str | None = None
         self._ui_details: str | None = None
         self._ui_details_full: str | None = None
+        self._images: list[ImageContent] | None = None
         self._result_markup: bool = True
         self._expanded: bool = expanded
         self._success: bool | None = None
@@ -274,6 +278,7 @@ class ToolBlock(Static):
     def compose(self) -> ComposeResult:
         yield Label(self._format_header(), id="tool-header")
         yield Label("", id="tool-output", classes="tool-output -hidden")
+        yield Static(id="tool-images", classes="tool-images -hidden")
 
     def _format_header(self, truncate: bool = True) -> Text:
         colors = config.ui.colors
@@ -438,15 +443,18 @@ class ToolBlock(Static):
         success: bool,
         markup: bool = True,
         ui_details_full: str | None = None,
+        images: list[ImageContent] | None = None,
     ) -> None:
         self._ui_summary = ui_summary
         self._ui_details = ui_details
         self._ui_details_full = ui_details_full
+        self._images = images
         self._result_markup = markup
         self._success = success
         self._awaiting_approval = False
         self._set_state(success)
         self._render_result_output()
+        self._render_images()
         self.query_one("#tool-header", Label).update(self._format_header())
 
     def set_expanded(self, expanded: bool) -> None:
@@ -476,6 +484,27 @@ class ToolBlock(Static):
             self.remove_class("-with-details")
             output.remove_class("-details")
             output.add_class("-hidden")
+
+    def _render_images(self) -> None:
+        container = self.query_one("#tool-images", Static)
+        container.remove_children()
+
+        if not self._images:
+            container.add_class("-hidden")
+            return
+
+        self.remove_class("-compact")
+        self.add_class("-with-details")
+        container.remove_class("-hidden")
+
+        for image in self._images:
+            try:
+                widget = TextualImage(image_content_to_pil(image), classes="tool-image")
+                widget.styles.width = 60
+                widget.styles.height = "auto"
+                container.mount(widget)
+            except Exception:
+                container.mount(Label(image_fallback(image), classes="tool-image-fallback"))
 
 
 class UserBlock(Static):

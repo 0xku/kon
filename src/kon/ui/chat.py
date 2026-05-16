@@ -10,6 +10,7 @@ from textual.widgets import Label
 
 from kon import config, get_config_dir
 from kon.context.skills import Skill
+from kon.core.types import ImageContent
 from kon.permissions import ApprovalResponse
 from kon.tools import BaseTool
 
@@ -484,11 +485,17 @@ class ChatLog(VerticalScroll):
         success: bool,
         markup: bool = True,
         ui_details_full: str | None = None,
+        images: list[ImageContent] | None = None,
     ) -> None:
         block = self._tool_blocks.get(tool_id)
         if block:
             block.set_result(
-                ui_summary, ui_details, success, markup=markup, ui_details_full=ui_details_full
+                ui_summary,
+                ui_details,
+                success,
+                markup=markup,
+                ui_details_full=ui_details_full,
+                images=images,
             )
             if ui_details:
                 # All ToolStartEvents arrive during streaming before any
