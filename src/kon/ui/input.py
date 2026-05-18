@@ -33,9 +33,8 @@ if TYPE_CHECKING:
     pass
 
 
-# Preserve ESC+CR as Shift+Enter: some terminals emit that legacy sequence instead
-# of CSI-u modified enter codes. Alt+Enter is handled via the CSI-u Meta/Alt form.
-ANSI_SEQUENCES_KEYS["\x1b\r"] = (SimpleNamespace(value="shift+enter"),)  # type: ignore[assignment]
+# REMOVED: "\x1b\r" mapping caused Escape+CR ambiguity leading to UI flicker
+# Using modern CSI-u sequences instead:
 ANSI_SEQUENCES_KEYS["\x1b[13;3u"] = (SimpleNamespace(value="alt+enter"),)  # type: ignore[assignment]
 ANSI_SEQUENCES_KEYS["\x1b[13;2u"] = (SimpleNamespace(value="shift+enter"),)  # type: ignore[assignment]
 
@@ -121,7 +120,7 @@ class InputBox(Vertical):
         Binding("enter", "submit", "Send", priority=True),
         Binding("ctrl+j,shift+enter", "newline", "New line", priority=True),
         Binding("alt+enter", "steer_submit", "Steer", priority=True),
-        Binding("escape", "cancel", "Cancel", priority=True),
+        Binding("escape", "cancel", "Cancel", priority=False),  # Lower priority so Shift+Enter win
         Binding("up", "cursor_up", "Up", priority=True),
         Binding("down", "cursor_down", "Down", priority=True),
         Binding("tab", "tab_complete", "Tab complete", priority=True),
