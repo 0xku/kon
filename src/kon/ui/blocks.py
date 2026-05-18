@@ -8,7 +8,6 @@ from textual import events
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.widgets import Label, Static
-from textual_image.widget import Image as TextualImage
 
 from kon import config
 from kon.core.types import ImageContent
@@ -486,6 +485,7 @@ class ToolBlock(Static):
             output.add_class("-hidden")
 
     def _render_images(self) -> None:
+        from textual_image.widget import Image as TextualImage
         container = self.query_one("#tool-images", Static)
         container.remove_children()
 
