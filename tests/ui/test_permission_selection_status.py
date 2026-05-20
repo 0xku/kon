@@ -44,10 +44,11 @@ def test_select_permission_mode_is_session_scoped(tmp_path, monkeypatch):
         assert fake.chat.statuses == ["Permission mode changed to auto"]
         assert config.permissions.mode == "auto"
 
+        # Permission mode is now persisted to disk
         config_file = tmp_path / ".kon" / "config.toml"
         if config_file.exists():
             data = _read_config_data(config_file)
             perms = data.get("permissions", {})
-            assert perms.get("mode", "prompt") == "prompt"
+            assert perms.get("mode", "prompt") == "auto"
     finally:
         reset_config()

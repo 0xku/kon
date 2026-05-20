@@ -50,6 +50,9 @@ class UIConfig(BaseModel):
     # When true, finalized thinking blocks are collapsed to a single line summary.
     # Set to false to always show the full thinking content.
     collapse_thinking: bool = True
+    # Show the list of keyboard shortcuts in the welcome section on launch.
+    # Set to false to hide the shortcuts panel.
+    show_welcome_shortcuts: bool = True
 
     @field_validator("theme")
     @classmethod
@@ -578,6 +581,54 @@ def set_theme(theme: str) -> Config:
 
     ui["theme"] = theme
     ui.pop("colors", None)
+    _set_config_version(data)
+
+    _atomic_write_text(config_file, _serialize_config_toml(data))
+    return reload_config()
+
+
+def set_show_welcome_shortcuts(enabled: bool) -> Config:
+    config_file = _ensure_config_file()
+    data = _read_config_data(config_file)
+
+    ui = data.get("ui")
+    if not isinstance(ui, dict):
+        ui = {}
+        data["ui"] = ui
+
+    ui["show_welcome_shortcuts"] = enabled
+    _set_config_version(data)
+
+    _atomic_write_text(config_file, _serialize_config_toml(data))
+    return reload_config()
+
+
+def set_permissions_mode(mode: PermissionMode) -> Config:
+    config_file = _ensure_config_file()
+    data = _read_config_data(config_file)
+
+    perms = data.get("permissions")
+    if not isinstance(perms, dict):
+        perms = {}
+        data["permissions"] = perms
+
+    perms["mode"] = mode
+    _set_config_version(data)
+
+    _atomic_write_text(config_file, _serialize_config_toml(data))
+    return reload_config()
+
+
+def set_notifications_enabled(enabled: bool) -> Config:
+    config_file = _ensure_config_file()
+    data = _read_config_data(config_file)
+
+    notifications = data.get("notifications")
+    if not isinstance(notifications, dict):
+        notifications = {}
+        data["notifications"] = notifications
+
+    notifications["enabled"] = enabled
     _set_config_version(data)
 
     _atomic_write_text(config_file, _serialize_config_toml(data))

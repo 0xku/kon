@@ -58,6 +58,9 @@ theme = "gruvbox-dark"
 # When true, finalized thinking blocks are collapsed to a single line summary.
 # Set to false to always show the full thinking content.
 collapse_thinking = true
+# Show the list of keyboard shortcuts in the welcome section on launch.
+# Set to false to hide the shortcuts panel.
+show_welcome_shortcuts = true
 
 [permissions]
 # Approval behavior for mutating tools.

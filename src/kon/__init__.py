@@ -8,6 +8,9 @@ from kon.config import (
     reload_config,
     reset_config,
     set_config,
+    set_notifications_enabled,
+    set_permissions_mode,
+    set_show_welcome_shortcuts,
     set_theme,
     update_available_binaries,
 )
@@ -35,6 +38,9 @@ __all__ = [
     "reload_config",
     "reset_config",
     "set_config",
+    "set_notifications_enabled",
+    "set_permissions_mode",
+    "set_show_welcome_shortcuts",
     "set_theme",
     "update_available_binaries",
 ]

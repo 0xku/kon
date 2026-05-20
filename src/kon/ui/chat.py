@@ -201,41 +201,43 @@ class ChatLog(VerticalScroll):
             if i == len(logo_lines) - 1:
                 info_text.append(f" v{version}", style=dim)
             info_text.append("\n")
-        info_text.append("\n")
 
-        shortcut_rows = (
-            (
-                ("/", "slash commands"),
-                ("@", "files/dirs"),
-                ("tab", "complete paths"),
-                ("↑/↓", "history"),
-            ),
-            (
-                ("shift+tab", "permissions"),
-                ("esc", "to interrupt"),
-                ("shift+enter", "add newline"),
-            ),
-            (
-                ("ctrl+c", "clear input"),
-                ("ctrl+c x2", "exit"),
-                ("enter", "queue"),
-                ("alt+enter", "steer"),
-            ),
-            (
-                ("↑/↓", "select queue"),
-                ("ctrl+t", "cycle thinking"),
-                ("ctrl+shift+t", "toggle thinking"),
-            ),
-        )
+        if config.ui.show_welcome_shortcuts:
+            info_text.append("\n")
 
-        for row_idx, row in enumerate(shortcut_rows):
-            for item_idx, (key, desc) in enumerate(row):
-                if item_idx > 0:
-                    info_text.append(" • ", style=dim)
-                info_text.append(key, style=muted)
-                info_text.append(f" {desc}", style=dim)
-            if row_idx < len(shortcut_rows) - 1:
-                info_text.append("\n")
+            shortcut_rows = (
+                (
+                    ("/", "slash commands"),
+                    ("@", "files/dirs"),
+                    ("tab", "complete paths"),
+                    ("↑/↓", "history"),
+                ),
+                (
+                    ("shift+tab", "permissions"),
+                    ("esc", "to interrupt"),
+                    ("shift+enter", "add newline"),
+                ),
+                (
+                    ("ctrl+c", "clear input"),
+                    ("ctrl+c x2", "exit"),
+                    ("enter", "queue"),
+                    ("alt+enter", "steer"),
+                ),
+                (
+                    ("↑/↓", "select queue"),
+                    ("ctrl+t", "cycle thinking"),
+                    ("ctrl+shift+t", "toggle thinking"),
+                ),
+            )
+
+            for row_idx, row in enumerate(shortcut_rows):
+                for item_idx, (key, desc) in enumerate(row):
+                    if item_idx > 0:
+                        info_text.append(" • ", style=dim)
+                    info_text.append(key, style=muted)
+                    info_text.append(f" {desc}", style=dim)
+                if row_idx < len(shortcut_rows) - 1:
+                    info_text.append("\n")
 
         info_label = Label(info_text)
         info_label.add_class("session-info")

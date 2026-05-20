@@ -5,7 +5,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from kon import config, set_theme
+from kon import (
+    config,
+    set_notifications_enabled,
+    set_permissions_mode,
+    set_show_welcome_shortcuts,
+    set_theme,
+)
 from kon.config import NOTIFICATION_MODES, PERMISSION_MODES, NotificationMode, PermissionMode
 
 from ..llm import (
@@ -267,7 +273,7 @@ class CommandsMixin:
         )
 
     def _select_permission_mode(self, mode: PermissionMode) -> None:
-        config.permissions.mode = mode
+        set_permissions_mode(mode)
         info_bar = self.query_one("#info-bar", InfoBar)
         info_bar.set_permission_mode(mode)
         chat = self.query_one("#chat-log", ChatLog)
@@ -329,7 +335,7 @@ class CommandsMixin:
         )
 
     def _select_notifications_mode(self, mode: NotificationMode) -> None:
-        config.notifications.enabled = mode == "on"
+        set_notifications_enabled(mode == "on")
         chat = self.query_one("#chat-log", ChatLog)
         chat.show_status(f"Notifications turned {mode}")
 
@@ -344,10 +350,12 @@ class CommandsMixin:
         except Exception:
             thinking_level = "off"
 
+        shortcut_status = "on" if config.ui.show_welcome_shortcuts else "off"
         return [
             ListItem(
                 value="notifications", label="notifications", description=notification_status
             ),
+            ListItem(value="show-shortcuts", label="show-shortcuts", description=shortcut_status),
             ListItem(
                 value="permissions", label="permissions", description=config.permissions.mode
             ),
@@ -369,16 +377,24 @@ class CommandsMixin:
     def _handle_settings_select(self, item_value: str) -> None:
         if item_value == "notifications":
             current_enabled = config.notifications.enabled
-            config.notifications.enabled = not current_enabled
-            mode: NotificationMode = "on" if config.notifications.enabled else "off"
+            set_notifications_enabled(not current_enabled)
+            mode: NotificationMode = "on" if not current_enabled else "off"
             chat = self.query_one("#chat-log", ChatLog)
             chat.show_status(f"Notifications turned {mode}")
+            self._show_settings_picker(selected_value=item_value)
+
+        elif item_value == "show-shortcuts":
+            shortcuts_current = config.ui.show_welcome_shortcuts
+            set_show_welcome_shortcuts(not shortcuts_current)
+            mode = "on" if not shortcuts_current else "off"
+            chat = self.query_one("#chat-log", ChatLog)
+            chat.show_status(f"Welcome shortcuts turned {mode}")
             self._show_settings_picker(selected_value=item_value)
 
         elif item_value == "permissions":
             current: PermissionMode = config.permissions.mode
             new_mode: PermissionMode = "auto" if current == "prompt" else "prompt"
-            config.permissions.mode = new_mode
+            set_permissions_mode(new_mode)
             info_bar = self.query_one("#info-bar", InfoBar)
             info_bar.set_permission_mode(new_mode)
             chat = self.query_one("#chat-log", ChatLog)
