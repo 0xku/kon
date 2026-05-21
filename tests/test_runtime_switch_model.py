@@ -1,7 +1,9 @@
+import pytest
+
 from kon.core.types import Message, ToolDefinition
 from kon.llm.base import BaseProvider, LLMStream, ProviderConfig
 from kon.llm.models import ApiType, get_model
-from kon.runtime import ConversationRuntime
+from kon.runtime import ConversationRuntime, create_provider
 from kon.session import Session
 
 
@@ -35,6 +37,46 @@ def _runtime_with_provider(provider: BaseProvider) -> ConversationRuntime:
     )
     runtime.provider = provider
     return runtime
+
+
+@pytest.mark.parametrize(
+    ("api_type", "provider_name", "expected_name"),
+    [
+        (ApiType.OPENAI_CODEX_RESPONSES, "openai-codex", "openai-codex"),
+        (ApiType.GITHUB_COPILOT, "github-copilot", "github-copilot"),
+        (ApiType.GITHUB_COPILOT_RESPONSES, "github-copilot", "github-copilot"),
+        (ApiType.ANTHROPIC_COPILOT, "github-copilot", "github-copilot-anthropic"),
+    ],
+)
+def test_create_provider_does_not_require_oauth_credentials(
+    api_type: ApiType, provider_name: str, expected_name: str, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    provider = create_provider(api_type, ProviderConfig(model="gpt-5.5", provider=provider_name))
+
+    assert provider.name == expected_name
+
+
+def test_initialize_creates_openai_codex_agent_without_credentials(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    runtime = ConversationRuntime(
+        cwd=str(tmp_path),
+        model="gpt-5.5",
+        model_provider="openai-codex",
+        api_key=None,
+        base_url=None,
+        thinking_level="high",
+        tools=[],
+    )
+
+    result = runtime.initialize()
+
+    assert result.provider_error is None
+    assert runtime.provider is not None
+    assert runtime.session is not None
+    assert runtime.agent is not None
 
 
 def test_switch_model_recreates_provider_when_openai_compatible_base_url_changes(monkeypatch):

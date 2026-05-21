@@ -16,11 +16,14 @@ from kon.config import NOTIFICATION_MODES, PERMISSION_MODES, NotificationMode, P
 
 from ..llm import (
     clear_openai_credentials,
+    copilot_login,
     get_all_models,
-    is_copilot_logged_in,
-    is_openai_logged_in,
+    get_copilot_token,
+    get_valid_openai_credentials,
     openai_login,
 )
+from ..llm import is_copilot_logged_in as has_saved_copilot_credentials
+from ..llm import is_openai_logged_in as has_saved_openai_credentials
 from ..runtime import ConversationRuntime
 from ..session import Session, SessionInfo
 from ..themes import get_theme_options
@@ -694,48 +697,35 @@ class CommandsMixin:
 
     def _handle_login_command(self, args: str) -> None:
         providers = [
-            {
-                "id": "github-copilot",
-                "name": "GitHub Copilot",
-                "logged_in": is_copilot_logged_in(),
-            },
-            {"id": "openai", "name": "OpenAI (ChatGPT/Codex)", "logged_in": is_openai_logged_in()},
+            ("github-copilot", "GitHub Copilot", has_saved_copilot_credentials()),
+            ("openai", "OpenAI (ChatGPT/Codex)", has_saved_openai_credentials()),
         ]
 
-        items: list[ListItem] = []
-        for p in providers:
-            label = f"{p['name']} ✓" if p["logged_in"] else p["name"]
-            description = "logged in" if p["logged_in"] else ""
-            items.append(ListItem(value=p["id"], label=label, description=description))
-
-        self._show_selection_picker(items, SelectionMode.LOGIN)
+        self._show_selection_picker(
+            [
+                ListItem(
+                    value=provider_id,
+                    label=name,
+                    description="saved credentials" if has_credentials else "",
+                )
+                for provider_id, name, has_credentials in providers
+            ],
+            SelectionMode.LOGIN,
+        )
 
     def _select_login_provider(self, provider_id: str) -> None:
-        chat = self.query_one("#chat-log", ChatLog)
-
         if provider_id == "github-copilot":
-            if is_copilot_logged_in():
-                chat.add_info_message("Already logged in to GitHub Copilot")
-                return
-
-            chat.add_info_message("Starting GitHub Copilot login...")
             self.run_worker(self._copilot_login_flow(), exclusive=False)
             return
 
         if provider_id == "openai":
-            if is_openai_logged_in():
-                chat.add_info_message("Already logged in to OpenAI")
-                return
-
-            chat.add_info_message("Starting OpenAI login...")
             self.run_worker(self._openai_login_flow(), exclusive=False)
 
     async def _copilot_login_flow(self) -> None:
         import webbrowser
 
-        from kon.llm import copilot_login
-
         chat = self.query_one("#chat-log", ChatLog)
+        had_saved_credentials = has_saved_copilot_credentials()
 
         def on_user_code(url: str, code: str) -> None:
             webbrowser.open(url)
@@ -747,6 +737,17 @@ class CommandsMixin:
             )
 
         try:
+            if await get_copilot_token():
+                chat.add_info_message("Already logged in to GitHub Copilot")
+                return
+
+            if had_saved_credentials:
+                chat.add_info_message(
+                    "Your saved GitHub Copilot session is no longer valid.", warning=True
+                )
+            else:
+                chat.add_info_message("Starting GitHub Copilot login...")
+
             await copilot_login(on_user_code=on_user_code)
             chat.add_info_message(
                 "Successfully logged in to GitHub Copilot!\n"
@@ -759,6 +760,7 @@ class CommandsMixin:
         import webbrowser
 
         chat = self.query_one("#chat-log", ChatLog)
+        had_saved_credentials = has_saved_openai_credentials()
 
         def on_auth_url(url: str) -> None:
             webbrowser.open(url)
@@ -770,6 +772,17 @@ class CommandsMixin:
             )
 
         try:
+            if await get_valid_openai_credentials():
+                chat.add_info_message("Already logged in to OpenAI")
+                return
+
+            if had_saved_credentials:
+                chat.add_info_message(
+                    "Your saved OpenAI session is no longer valid.", warning=True
+                )
+            else:
+                chat.add_info_message("Starting OpenAI login...")
+
             await openai_login(on_auth_url=on_auth_url)
             chat.add_info_message(
                 "Successfully logged in to OpenAI!\n"
@@ -780,21 +793,23 @@ class CommandsMixin:
 
     def _handle_logout_command(self, args: str) -> None:
         providers = []
-        if is_copilot_logged_in():
-            providers.append({"id": "github-copilot", "name": "GitHub Copilot"})
-        if is_openai_logged_in():
-            providers.append({"id": "openai", "name": "OpenAI (ChatGPT/Codex)"})
+        if has_saved_copilot_credentials():
+            providers.append(("github-copilot", "GitHub Copilot"))
+        if has_saved_openai_credentials():
+            providers.append(("openai", "OpenAI (ChatGPT/Codex)"))
 
         if not providers:
             chat = self.query_one("#chat-log", ChatLog)
             chat.add_info_message("No providers logged in")
             return
 
-        items: list[ListItem] = []
-        for p in providers:
-            items.append(ListItem(value=p["id"], label=p["name"], description=""))
-
-        self._show_selection_picker(items, SelectionMode.LOGOUT)
+        self._show_selection_picker(
+            [
+                ListItem(value=provider_id, label=name, description="")
+                for provider_id, name in providers
+            ],
+            SelectionMode.LOGOUT,
+        )
 
     def _select_logout_provider(self, provider_id: str) -> None:
         from kon.llm import clear_copilot_credentials

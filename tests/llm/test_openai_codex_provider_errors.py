@@ -12,6 +12,8 @@ from kon.core.types import (
     ToolCallStart,
 )
 from kon.llm.base import LLMStream, ProviderConfig
+from kon.llm.oauth.openai import OpenAICredentials
+from kon.llm.providers import openai_codex_responses as codex_provider
 from kon.llm.providers.openai_codex_responses import (
     _WS_FALLBACK_SESSIONS,
     CodexTransportError,
@@ -61,6 +63,47 @@ def test_websocket_headers_use_beta_and_request_id():
     assert headers["x-client-request-id"] == "session-123"
     assert "accept" not in headers
     assert "content-type" not in headers
+
+
+@pytest.mark.asyncio
+async def test_stream_impl_uses_valid_credentials_for_token_and_account(monkeypatch):
+    provider = OpenAICodexResponsesProvider(ProviderConfig(model="gpt-5.5"))
+    creds = OpenAICredentials(
+        refresh="refresh",
+        access="access-token",
+        expires=9_999_999_999_999,
+        account_id="account-id",
+    )
+    captured: dict[str, Any] = {}
+
+    async def fake_get_valid_credentials() -> OpenAICredentials:
+        return creds
+
+    def fake_stream_codex(**kwargs):
+        captured.update(kwargs)
+        return _async_iter([])
+
+    monkeypatch.setattr(codex_provider, "get_valid_openai_credentials", fake_get_valid_credentials)
+    monkeypatch.setattr(provider, "_stream_codex", fake_stream_codex)
+
+    stream = await provider._stream_impl([])
+
+    assert isinstance(stream, LLMStream)
+    assert captured["token"] == "access-token"
+    assert captured["account_id"] == "account-id"
+
+
+@pytest.mark.asyncio
+async def test_stream_impl_raises_when_openai_credentials_are_invalid(monkeypatch):
+    provider = OpenAICodexResponsesProvider(ProviderConfig(model="gpt-5.5"))
+
+    async def fake_get_valid_credentials() -> None:
+        return None
+
+    monkeypatch.setattr(codex_provider, "get_valid_openai_credentials", fake_get_valid_credentials)
+
+    with pytest.raises(RuntimeError, match="Not logged in to OpenAI"):
+        await provider._stream_impl([])
 
 
 @pytest.mark.asyncio

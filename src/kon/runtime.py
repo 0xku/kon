@@ -15,19 +15,12 @@ from .llm import (
     get_max_tokens,
     get_model,
     get_provider_class,
-    is_copilot_logged_in,
-    is_openai_logged_in,
     resolve_provider_api_type,
 )
 from .llm.base import AuthMode
 from .loop import Agent, build_system_prompt
 from .session import CustomMessageEntry, MessageEntry, Session
 from .tools import BaseTool
-
-_COPILOT_API_TYPES: frozenset[ApiType] = frozenset(
-    {ApiType.GITHUB_COPILOT, ApiType.GITHUB_COPILOT_RESPONSES, ApiType.ANTHROPIC_COPILOT}
-)
-_OPENAI_OAUTH_API_TYPES: frozenset[ApiType] = frozenset({ApiType.OPENAI_CODEX_RESPONSES})
 
 
 def default_base_url_for_api(api_type: ApiType) -> str | None:
@@ -37,10 +30,6 @@ def default_base_url_for_api(api_type: ApiType) -> str | None:
 
 
 def create_provider(api_type: ApiType, config: ProviderConfig) -> BaseProvider:
-    if api_type in _COPILOT_API_TYPES and not is_copilot_logged_in():
-        raise ValueError("Not logged in to GitHub Copilot. Use /login to authenticate.")
-    if api_type in _OPENAI_OAUTH_API_TYPES and not is_openai_logged_in():
-        raise ValueError("Not logged in to OpenAI. Use /login to authenticate.")
     return get_provider_class(api_type)(config)
 
 

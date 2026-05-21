@@ -379,9 +379,7 @@ async def login(
                 await server.wait_closed()
 
 
-async def get_valid_openai_token() -> str | None:
-    import time
-
+async def get_valid_openai_credentials() -> OpenAICredentials | None:
     creds = load_openai_credentials()
     if not creds:
         return None
@@ -392,4 +390,9 @@ async def get_valid_openai_token() -> str | None:
         except Exception:
             return None
 
-    return creds.access
+    return creds
+
+
+async def get_valid_openai_token() -> str | None:
+    creds = await get_valid_openai_credentials()
+    return creds.access if creds else None

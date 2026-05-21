@@ -23,7 +23,7 @@ from ...core.types import (
     Usage,
 )
 from ..base import BaseProvider, LLMStream
-from ..oauth.openai import get_valid_openai_token, load_openai_credentials
+from ..oauth.openai import get_valid_openai_credentials
 
 _MAX_RETRIES = 3
 _BASE_DELAY_MS = 1000
@@ -66,15 +66,14 @@ class OpenAICodexResponsesProvider(BaseProvider):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> LLMStream:
-        token = await get_valid_openai_token()
-        creds = load_openai_credentials()
-        if not token or not creds:
+        creds = await get_valid_openai_credentials()
+        if not creds:
             raise RuntimeError("Not logged in to OpenAI. Use /login to authenticate.")
 
         llm_stream = LLMStream()
         llm_stream.set_iterator(
             self._stream_codex(
-                token=token,
+                token=creds.access,
                 account_id=creds.account_id,
                 messages=messages,
                 system_prompt=system_prompt,

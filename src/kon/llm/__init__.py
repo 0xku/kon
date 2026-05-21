@@ -10,6 +10,7 @@ from .models import (
 from .oauth import clear_credentials as clear_copilot_credentials
 from .oauth import (
     clear_openai_credentials,
+    get_valid_openai_credentials,
     is_copilot_logged_in,
     is_openai_logged_in,
     load_openai_credentials,
@@ -39,6 +40,7 @@ __all__ = [
     "get_models_by_provider",
     "get_openai_token",
     "get_provider_class",
+    "get_valid_openai_credentials",
     "is_copilot_logged_in",
     "is_openai_logged_in",
     "load_copilot_credentials",
