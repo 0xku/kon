@@ -29,7 +29,9 @@ class FakeFloatingList:
         self.items: list[ListItem] = []
         self.searchable: bool | None = None
 
-    def show(self, items: list[ListItem], searchable: bool = False) -> None:
+    def show(
+        self, items: list[ListItem], searchable: bool = False, max_label_width: int | None = None
+    ) -> None:
         self.items = items
         self.searchable = searchable
 
@@ -72,6 +74,21 @@ class FakeCommands(CommandsMixin):
     def run_worker(self, coro, exclusive: bool = True):
         self.workers.append((coro, exclusive))
         coro.close()
+
+    def _is_chat_at_bottom(self) -> bool:
+        return True
+
+    def _restore_chat_scroll_after_refresh(self, was_at_bottom: bool) -> None:
+        pass
+
+    def _show_completion_list(
+        self,
+        items: list[ListItem],
+        *,
+        searchable: bool = False,
+        max_label_width: int | None = None,
+    ) -> None:
+        self.completion_list.show(items, searchable=searchable, max_label_width=max_label_width)
 
 
 @pytest.mark.asyncio
