@@ -336,18 +336,20 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
     def on_mount(self) -> None:
         if config.binaries.fd:
             self._fd_path = shutil.which("fd") or shutil.which("fdfind")
-        else:
-            self._fd_path = None
+
+        # fallback - our management (config.binaries.fd takes into account bins from config dir)
+        if not self._fd_path:
+            self.run_worker(self._ensure_binaries(), exclusive=False)
+
+        self.run_worker(self._check_for_updates(), exclusive=False)
 
         input_box = self.query_one("#input-box", InputBox)
-        input_box.set_fd_path(self._fd_path)
         input_box.set_commands(DEFAULT_COMMANDS.copy())
 
         if not self._fd_path:
             self.run_worker(self._collect_file_paths(), exclusive=False)
-
-        self.run_worker(self._ensure_binaries(), exclusive=False)
-        self.run_worker(self._check_for_updates(), exclusive=False)
+        else:
+            input_box.set_fd_path(self._fd_path)
 
         try:
             init_result = self._runtime.initialize(
@@ -451,7 +453,6 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
 
         if not self._fd_path and paths.get("fd"):
             self._fd_path = paths["fd"]
-            self.query_one("#input-box", InputBox).set_fd_path(self._fd_path)
 
     async def _check_for_updates(self) -> None:
         latest = await get_newer_pypi_version(_PYPI_PACKAGE_NAME, VERSION)
