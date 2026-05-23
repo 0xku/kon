@@ -252,7 +252,8 @@ def load_skills(cwd: str | None = None) -> LoadSkillsResult:
             else:
                 skill_map[skill.name] = skill
 
-    for skills_dir in _project_skill_dirs(resolved_cwd):
+    project_skills_dirs = _project_skill_dirs(resolved_cwd)
+    for skills_dir in project_skills_dirs:
         add_skills(_load_skills_from_dir(skills_dir))
 
     legacy_project_skills_dir = (resolved_cwd / ".kon" / "skills").resolve(strict=False)
@@ -269,7 +270,7 @@ def load_skills(cwd: str | None = None) -> LoadSkillsResult:
     )
 
     user_skills_dir = (get_config_dir() / "skills").resolve(strict=False)
-    if user_skills_dir != legacy_project_skills_dir:
+    if user_skills_dir not in project_skills_dirs and user_skills_dir != legacy_project_skills_dir:
         add_skills(_load_skills_from_dir(user_skills_dir))
 
     legacy_user_skills_dir = (get_legacy_config_dir() / "skills").resolve(strict=False)
