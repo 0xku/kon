@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from .path_migration import consume_path_migration_warnings, get_path_state, reset_path_state
 from .themes import ColorsConfig, get_theme, get_theme_ids
+from .tools_manager import detect_available_binaries
 
 CONFIG_DIR_NAME: str = "kon"
 
@@ -214,7 +215,7 @@ class Config:
 
     @property
     def binaries(self) -> _BinariesConfig:
-        return _BinariesConfig(AVAILABLE_BINARIES)
+        return _BinariesConfig(detect_available_binaries(get_bin_dir()))
 
 
 # =================================================================================================
@@ -224,6 +225,10 @@ class Config:
 
 def get_config_dir() -> Path:
     return get_path_state().config_dir
+
+
+def get_bin_dir() -> Path:
+    return get_config_dir() / "bin"
 
 
 def get_legacy_config_dir() -> Path:
@@ -254,18 +259,6 @@ def consume_config_warnings() -> list[str]:
     warnings = consume_path_migration_warnings() + _config_warnings.copy()
     _config_warnings.clear()
     return warnings
-
-
-def _detect_available_binaries() -> set[str]:
-    binaries = {"rg", "fd"}
-    available = set()
-    bin_dir = get_config_dir() / "bin"
-
-    for binary in binaries:
-        if shutil.which(binary) or (bin_dir / binary).exists():
-            available.add(binary)
-
-    return available
 
 
 def _get_config_version(data: dict[str, Any]) -> int:
@@ -486,20 +479,6 @@ def _backup_and_write_migrated_config(config_file: Path, data: dict[str, Any]) -
     shutil.copy2(config_file, backup_path)
     _atomic_write_text(config_file, _serialize_config_toml(data))
     return backup_path
-
-
-# =================================================================================================
-# Runtime Environment Capabilities
-# TODO: Consider moving runtime capability detection and caching to a dedicated runtime.py module.
-# =================================================================================================
-
-
-AVAILABLE_BINARIES = _detect_available_binaries()
-
-
-def update_available_binaries() -> None:
-    AVAILABLE_BINARIES.clear()
-    AVAILABLE_BINARIES.update(_detect_available_binaries())
 
 
 # =================================================================================================

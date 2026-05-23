@@ -14,7 +14,7 @@ from textual import events, on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 
-from kon import config, consume_config_warnings, update_available_binaries
+from kon import config, consume_config_warnings, get_bin_dir
 from kon.tools_manager import ensure_tools
 
 from ..context.skills import (
@@ -336,20 +336,15 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
     def on_mount(self) -> None:
         if config.binaries.fd:
             self._fd_path = shutil.which("fd") or shutil.which("fdfind")
-
-        # fallback - our management (config.binaries.fd takes into account bins from config dir)
-        if not self._fd_path:
-            self.run_worker(self._ensure_binaries(), exclusive=False)
-
-        self.run_worker(self._check_for_updates(), exclusive=False)
+        else:
+            self.run_worker(self._collect_file_paths(), exclusive=False)
 
         input_box = self.query_one("#input-box", InputBox)
+        input_box.set_fd_path(self._fd_path)
         input_box.set_commands(DEFAULT_COMMANDS.copy())
 
-        if not self._fd_path:
-            self.run_worker(self._collect_file_paths(), exclusive=False)
-        else:
-            input_box.set_fd_path(self._fd_path)
+        self.run_worker(self._ensure_binaries(), exclusive=False)
+        self.run_worker(self._check_for_updates(), exclusive=False)
 
         try:
             init_result = self._runtime.initialize(
@@ -448,11 +443,11 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
         self.query_one("#input-box", InputBox).set_file_paths(paths)
 
     async def _ensure_binaries(self) -> None:
-        paths = await ensure_tools(silent=True)
-        update_available_binaries()
+        paths = await ensure_tools(get_bin_dir(), silent=True)
 
         if not self._fd_path and paths.get("fd"):
             self._fd_path = paths["fd"]
+            self.query_one("#input-box", InputBox).set_fd_path(self._fd_path)
 
     async def _check_for_updates(self) -> None:
         latest = await get_newer_pypi_version(_PYPI_PACKAGE_NAME, VERSION)

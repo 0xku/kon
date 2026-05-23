@@ -13,12 +13,7 @@ from typing import Literal
 
 import aiohttp
 
-from .config import get_config_dir
-
 ToolName = Literal["fd", "rg"]
-
-_BIN_DIR = get_config_dir() / "bin"
-
 
 @dataclass
 class _ToolConfig:
@@ -85,13 +80,13 @@ def _command_exists(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
-def get_tool_path(tool: ToolName) -> str | None:
+def get_tool_path(tool: ToolName, bin_dir: Path) -> str | None:
     config = _TOOLS.get(tool)
     if not config:
         return None
 
     ext = ".exe" if _get_platform() == "win32" else ""
-    local_path = _BIN_DIR / (config.binary_name + ext)
+    local_path = bin_dir / (config.binary_name + ext)
     if local_path.exists():
         return str(local_path)
 
@@ -99,6 +94,17 @@ def get_tool_path(tool: ToolName) -> str | None:
         return config.binary_name
 
     return None
+
+
+def detect_available_binaries(bin_dir: Path) -> set[str]:
+    binaries: list[ToolName] = ["rg", "fd"]
+    available = set()
+
+    for binary in binaries:
+        if get_tool_path(binary, bin_dir):
+            available.add(binary)
+
+    return available
 
 
 async def _get_latest_version(session: aiohttp.ClientSession, repo: str) -> str:
@@ -153,7 +159,7 @@ def _extract_binary(archive_path: Path, binary_name: str, dest: Path) -> Path:
     return output_path
 
 
-async def _download_tool(tool: ToolName) -> str:
+async def _download_tool(tool: ToolName, bin_dir: Path) -> str:
     # TODO: Move archive extraction and other synchronous file operations
     # off the event loop so background tool installation cannot cause UI hiccups.
     config = _TOOLS[tool]
@@ -168,24 +174,24 @@ async def _download_tool(tool: ToolName) -> str:
         if not asset_name:
             raise RuntimeError(f"No binary available for {config.name} on {plat}/{arch}")
 
-        _BIN_DIR.mkdir(parents=True, exist_ok=True)
+        bin_dir.mkdir(parents=True, exist_ok=True)
 
         download_url = (
             f"https://github.com/{config.repo}/releases/download/"
             f"{config.tag_prefix}{version}/{asset_name}"
         )
 
-        archive_path = _BIN_DIR / asset_name
+        archive_path = bin_dir / asset_name
         try:
             await _download_file(session, download_url, archive_path)
-            binary_path = _extract_binary(archive_path, config.binary_name, _BIN_DIR)
+            binary_path = _extract_binary(archive_path, config.binary_name, bin_dir)
             return str(binary_path)
         finally:
             archive_path.unlink(missing_ok=True)
 
 
-async def ensure_tool(tool: ToolName, silent: bool = False) -> str | None:
-    existing = get_tool_path(tool)
+async def ensure_tool(tool: ToolName, bin_dir: Path, silent: bool = False) -> str | None:
+    existing = get_tool_path(tool, bin_dir)
     if existing:
         return existing
 
@@ -201,7 +207,7 @@ async def ensure_tool(tool: ToolName, silent: bool = False) -> str | None:
         print(f"{config.name} not found. Downloading...", file=sys.stderr)
 
     try:
-        path = await _download_tool(tool)
+        path = await _download_tool(tool, bin_dir)
         if not silent:
             print(f"{config.name} installed to {path}", file=sys.stderr)
         return path
@@ -212,9 +218,9 @@ async def ensure_tool(tool: ToolName, silent: bool = False) -> str | None:
 
 
 async def ensure_tools(
-    tools: list[ToolName] | None = None, silent: bool = False
+    bin_dir: Path, tools: list[ToolName] | None = None, silent: bool = False
 ) -> dict[ToolName, str | None]:
     if tools is None:
         tools = ["fd", "rg"]
-    results = await asyncio.gather(*(ensure_tool(t, silent=silent) for t in tools))
+    results = await asyncio.gather(*(ensure_tool(t, bin_dir, silent=silent) for t in tools))
     return dict(zip(tools, results, strict=True))

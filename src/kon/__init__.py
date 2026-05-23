@@ -1,11 +1,11 @@
 from kon.config import (
-    AVAILABLE_BINARIES,
     CONFIG_DIR_NAME,
     Config,
     consume_config_warnings,
     get_agents_dir,
     get_config,
     get_config_dir,
+    get_bin_dir,
     get_legacy_config_dir,
     reload_config,
     reset_config,
@@ -14,7 +14,6 @@ from kon.config import (
     set_permissions_mode,
     set_show_welcome_shortcuts,
     set_theme,
-    update_available_binaries,
 )
 from kon.context._xml import escape_xml
 
@@ -29,7 +28,6 @@ class _ConfigProxy:
 config: Config = _ConfigProxy()  # type: ignore[assignment]
 
 __all__ = [
-    "AVAILABLE_BINARIES",
     "CONFIG_DIR_NAME",
     "Config",
     "config",
@@ -38,6 +36,7 @@ __all__ = [
     "get_agents_dir",
     "get_config",
     "get_config_dir",
+    "get_bin_dir",
     "get_legacy_config_dir",
     "reload_config",
     "reset_config",
@@ -46,5 +45,4 @@ __all__ = [
     "set_permissions_mode",
     "set_show_welcome_shortcuts",
     "set_theme",
-    "update_available_binaries",
 ]
