@@ -114,6 +114,11 @@ async def _safe_anext(aiter):
         return _STREAM_EXHAUSTED
 
 
+async def _close_stream(stream: LLMStream) -> None:
+    with contextlib.suppress(Exception):
+        await stream.aclose()
+
+
 def tool_call_idle_timeout_seconds() -> float | None:
     timeout = kon_config.llm.tool_call_idle_timeout_seconds
     return None if timeout <= 0 else timeout
@@ -372,6 +377,7 @@ async def run_single_turn(
                 next_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await next_task
+                await _close_stream(stream)
                 timeout_secs = chunk_timeout or 0
                 yield WarningEvent(
                     warning=(
@@ -392,6 +398,7 @@ async def run_single_turn(
                 next_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await next_task
+                await _close_stream(stream)
                 interrupted = True
                 stop_reason = StopReason.INTERRUPTED
                 break
@@ -404,6 +411,7 @@ async def run_single_turn(
                 next_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await next_task
+                await _close_stream(stream)
                 timeout_secs = chunk_timeout or 0
                 yield WarningEvent(
                     warning=(

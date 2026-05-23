@@ -121,6 +121,13 @@ class LLMStream(AsyncIterator["StreamPart"]):
             raise StopAsyncIteration
         return await self._iterator.__anext__()
 
+    async def aclose(self) -> None:
+        if self._iterator is None:
+            return
+        close = getattr(self._iterator, "aclose", None)
+        if close is not None:
+            await close()
+
     @property
     def usage(self) -> Usage | None:
         return self._usage

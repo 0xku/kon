@@ -603,6 +603,9 @@ class OpenAICodexResponsesProvider(BaseProvider):
                 heartbeat=20,
                 timeout=ws_timeout,
             )
+        except asyncio.CancelledError:
+            await session.close()
+            raise
         except Exception:
             await session.close()
             raise
@@ -781,6 +784,10 @@ class OpenAICodexResponsesProvider(BaseProvider):
 
             if not saw_completion:
                 raise CodexTransportError("WebSocket stream closed before response.completed")
+        except asyncio.CancelledError:
+            entry.continuation = None
+            keep_connection = False
+            raise
         except Exception:
             entry.continuation = None
             keep_connection = False

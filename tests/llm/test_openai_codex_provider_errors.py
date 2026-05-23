@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from types import SimpleNamespace
 from typing import Any, cast
@@ -432,6 +433,72 @@ async def test_websocket_reuse_sends_only_cached_input_delta(monkeypatch):
     assert sent_bodies[1]["input"] == [
         {"role": "user", "content": [{"type": "input_text", "text": "Now finish"}]}
     ]
+
+
+@pytest.mark.asyncio
+async def test_cancelled_websocket_stream_closes_and_evicts_cached_connection(monkeypatch):
+    provider = OpenAICodexResponsesProvider(
+        ProviderConfig(session_id="session-cancel", model="gpt-5.4")
+    )
+    sent = asyncio.Event()
+    receiving = asyncio.Event()
+
+    class FakeSession:
+        closed = False
+
+        async def close(self) -> None:
+            self.closed = True
+
+    class BlockingWebSocket:
+        closed = False
+
+        async def send_json(self, payload: dict[str, Any]) -> None:
+            sent.set()
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            receiving.set()
+            await asyncio.Event().wait()
+            raise StopAsyncIteration
+
+        def exception(self):
+            return None
+
+        async def close(self, *args, **kwargs) -> None:
+            self.closed = True
+
+    fake_session = FakeSession()
+    fake_ws = BlockingWebSocket()
+
+    async def fake_new_connection(headers):
+        return codex_provider._CachedWebSocketConnection(
+            session=cast(Any, fake_session), ws=cast(Any, fake_ws), busy=True
+        )
+
+    monkeypatch.setattr(provider, "_new_websocket_connection", fake_new_connection)
+
+    events = provider._stream_websocket_events(
+        {"model": "gpt-5.4", "stream": True},
+        {"Authorization": "Bearer t"},
+        session_id="session-cancel",
+    )
+
+    async def next_event() -> dict[str, Any]:
+        return await events.__anext__()
+
+    task = asyncio.create_task(next_event())
+    await sent.wait()
+    await receiving.wait()
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert "session-cancel" not in _WS_SESSION_CACHE
+    assert fake_ws.closed is True
+    assert fake_session.closed is True
 
 
 @pytest.mark.asyncio
