@@ -40,34 +40,33 @@ from ...core.types import (
     UserMessage,
 )
 from ..base import BaseProvider, LLMStream, ProviderConfig, resolve_api_key
+from .anthropic_capabilities import lookup_capabilities, supports_adaptive_thinking
 from .sanitize import sanitize_surrogates
 
-THINKING_BUDGET_MAP: dict[str, int] = {
-    "none": 0,
-    "minimal": 1024,
-    "low": 2048,
-    "medium": 4096,
-    "high": 8192,
-    "xhigh": 16384,
-}
+# Re-export for callers/tests that imported these names from this module.
+__all__ = ["AnthropicProvider", "lookup_capabilities", "supports_adaptive_thinking"]
 
-THINKING_LEVEL_TO_EFFORT: dict[str, str] = {
-    "minimal": "low",
-    "low": "low",
-    "medium": "medium",
-    "high": "high",
-    "xhigh": "max",
-}
+# Minimum tokens to keep available for the actual response when sizing
+# `max_tokens` against the thinking budget.
+_MIN_OUTPUT_TOKENS = 1024
+
+# Beta header for interleaved thinking on non-adaptive Claude 4 thinking models.
+_INTERLEAVED_THINKING_BETA = "interleaved-thinking-2025-05-14"
 
 
-def supports_adaptive_thinking(model_id: str) -> bool:
-    model_id = model_id.lower()
-    return (
-        "opus-4-6" in model_id
-        or "opus-4.6" in model_id
-        or "sonnet-4-6" in model_id
-        or "sonnet-4.6" in model_id
-    )
+def _adjust_max_tokens_for_thinking(
+    caller_max_tokens: int | None, thinking_budget: int
+) -> tuple[int, int]:
+    """Return (max_tokens, adjusted_budget).
+
+    Inspired by pi-mono's `adjustMaxTokensForThinking`: the thinking budget
+    is added on top of the caller's desired output cap so thinking tokens
+    don't starve the actual response. We also guarantee at least
+    `_MIN_OUTPUT_TOKENS` of headroom above the thinking budget.
+    """
+    base = caller_max_tokens if caller_max_tokens is not None else _MIN_OUTPUT_TOKENS
+    max_tokens = max(base + thinking_budget, thinking_budget + _MIN_OUTPUT_TOKENS)
+    return max_tokens, thinking_budget
 
 
 class AnthropicProvider(BaseProvider):
@@ -125,21 +124,40 @@ class AnthropicProvider(BaseProvider):
         # Add temperature if specified and not using thinking
         temp = temperature if temperature is not None else self.config.temperature
         thinking_level = self.config.thinking_level
-        thinking_budget = THINKING_BUDGET_MAP.get(thinking_level, 0)
+        caps = lookup_capabilities(self.config.model)
+        thinking_budget = caps.thinking_budgets.get(thinking_level, 0)
+        thinking_enabled = thinking_level != "none" and (
+            thinking_budget > 0 or caps.adaptive_thinking
+        )
 
-        if thinking_budget > 0:
-            if supports_adaptive_thinking(self.config.model):
-                create_kwargs["thinking"] = {"type": "adaptive"}
-                effort = THINKING_LEVEL_TO_EFFORT.get(thinking_level, "high")
+        if thinking_enabled:
+            if caps.adaptive_thinking:
+                # Adaptive thinking: model decides how much to think; we steer with effort.
+                create_kwargs["thinking"] = {"type": "adaptive", "display": "summarized"}
+                effort = caps.effort_map.get(thinking_level, "high")
                 create_kwargs["output_config"] = {"effort": effort}
             else:
-                # Extended thinking - temperature must be 1
-                create_kwargs["thinking"] = ThinkingConfigEnabledParam(
-                    type="enabled", budget_tokens=thinking_budget
+                # Budget-based thinking for older models. Couple max_tokens with budget
+                # so the response isn't starved.
+                adjusted_max, adjusted_budget = _adjust_max_tokens_for_thinking(
+                    max_tok, thinking_budget
                 )
+                create_kwargs["max_tokens"] = adjusted_max
+                create_kwargs["thinking"] = ThinkingConfigEnabledParam(
+                    type="enabled", budget_tokens=adjusted_budget
+                )
+                if caps.supports_interleaved_thinking_beta:
+                    create_kwargs["extra_headers"] = {
+                        **create_kwargs.get("extra_headers", {}),
+                        "anthropic-beta": _INTERLEAVED_THINKING_BETA,
+                    }
             # Don't set temperature when thinking is enabled (defaults to 1)
-        elif temp is not None:
-            create_kwargs["temperature"] = temp
+        else:
+            # Explicitly disable thinking on models that default to thinking-on.
+            if caps.adaptive_thinking:
+                create_kwargs["thinking"] = {"type": "disabled"}
+            if temp is not None:
+                create_kwargs["temperature"] = temp
 
         if anthropic_tools:
             create_kwargs["tools"] = anthropic_tools
@@ -321,6 +339,14 @@ class AnthropicProvider(BaseProvider):
                 # Anthropic requires a signature on replayed thinking blocks.
                 # Keep valid signed thinking and drop invalid/partial thinking.
                 if not item.signature:
+                    continue
+
+                # Redacted/encrypted thinking arrives as empty thinking text with
+                # a signature payload. Replay it via the dedicated
+                # `redacted_thinking` block type so the API accepts the opaque
+                # data, matching pi-mono's behavior.
+                if not item.thinking.strip():
+                    parts.append({"type": "redacted_thinking", "data": item.signature})
                     continue
 
                 thinking_block: dict[str, Any] = {

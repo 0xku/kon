@@ -13,12 +13,8 @@ from anthropic.types import ThinkingConfigEnabledParam
 from ...core.types import Message, ToolDefinition
 from ..base import BaseProvider, LLMStream, ProviderConfig
 from ..oauth import COPILOT_HEADERS, get_base_url_from_token, get_valid_token, load_credentials
-from .anthropic import (
-    THINKING_BUDGET_MAP,
-    THINKING_LEVEL_TO_EFFORT,
-    AnthropicProvider,
-    supports_adaptive_thinking,
-)
+from .anthropic import AnthropicProvider, _adjust_max_tokens_for_thinking
+from .anthropic_capabilities import lookup_capabilities
 from .github_copilot_headers import build_copilot_dynamic_headers
 
 
@@ -89,24 +85,32 @@ class CopilotAnthropicProvider(AnthropicProvider):
             ]
 
         temp = temperature if temperature is not None else self.config.temperature
+        thinking_level = self.config.thinking_level
+        caps = lookup_capabilities(self.config.model)
+        thinking_budget = caps.thinking_budgets.get(thinking_level, 0)
+        thinking_enabled = thinking_level != "none" and (
+            thinking_budget > 0 or caps.adaptive_thinking
+        )
 
-        # Adaptive thinking for Opus 4.6+ (like pi-mono)
-        if supports_adaptive_thinking(self.config.model):
-            thinking_level = self.config.thinking_level
-            if thinking_level and thinking_level != "none":
-                create_kwargs["thinking"] = {"type": "adaptive"}
-                effort = THINKING_LEVEL_TO_EFFORT.get(thinking_level, "high")
+        if thinking_enabled:
+            if caps.adaptive_thinking:
+                create_kwargs["thinking"] = {"type": "adaptive", "display": "summarized"}
+                effort = caps.effort_map.get(thinking_level, "high")
                 create_kwargs["output_config"] = {"effort": effort}
-            elif temp is not None:
-                create_kwargs["temperature"] = temp
-        else:
-            # Budget-based thinking for older models
-            thinking_budget = THINKING_BUDGET_MAP.get(self.config.thinking_level, 0)
-            if thinking_budget > 0:
-                create_kwargs["thinking"] = ThinkingConfigEnabledParam(
-                    type="enabled", budget_tokens=thinking_budget
+            else:
+                adjusted_max, adjusted_budget = _adjust_max_tokens_for_thinking(
+                    max_tok, thinking_budget
                 )
-            elif temp is not None:
+                create_kwargs["max_tokens"] = adjusted_max
+                create_kwargs["thinking"] = ThinkingConfigEnabledParam(
+                    type="enabled", budget_tokens=adjusted_budget
+                )
+                # NB: the interleaved-thinking beta header is already set on
+                # the client for all Copilot Anthropic traffic.
+        else:
+            if caps.adaptive_thinking:
+                create_kwargs["thinking"] = {"type": "disabled"}
+            if temp is not None:
                 create_kwargs["temperature"] = temp
 
         if anthropic_tools:

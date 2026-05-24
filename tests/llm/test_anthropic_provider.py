@@ -86,9 +86,28 @@ def test_convert_assistant_message_keeps_signed_thinking(anthropic_provider: Ant
 def test_supports_adaptive_thinking_detection():
     assert supports_adaptive_thinking("claude-opus-4.6")
     assert supports_adaptive_thinking("claude-opus-4-6")
+    assert supports_adaptive_thinking("claude-opus-4.7")
+    assert supports_adaptive_thinking("claude-opus-4-7")
     assert supports_adaptive_thinking("claude-sonnet-4.6")
     assert supports_adaptive_thinking("claude-sonnet-4-6")
     assert not supports_adaptive_thinking("claude-3-7-sonnet")
+
+
+def test_capabilities_effort_map_per_model():
+    from kon.llm.providers.anthropic_capabilities import lookup_capabilities
+
+    # Opus 4.7 uses "xhigh" as its top effort vocab.
+    assert lookup_capabilities("claude-opus-4.7").effort_map["xhigh"] == "xhigh"
+    assert lookup_capabilities("claude-opus-4-7").effort_map["xhigh"] == "xhigh"
+
+    # Opus 4.6 / Sonnet 4.6 use "max".
+    assert lookup_capabilities("claude-opus-4.6").effort_map["xhigh"] == "max"
+    assert lookup_capabilities("claude-sonnet-4-6").effort_map["xhigh"] == "max"
+
+    # Legacy models: non-adaptive with interleaved-thinking beta available.
+    legacy = lookup_capabilities("claude-3-7-sonnet")
+    assert legacy.adaptive_thinking is False
+    assert legacy.supports_interleaved_thinking_beta is True
 
 
 @pytest.mark.asyncio
@@ -185,9 +204,26 @@ async def test_stream_uses_adaptive_thinking_for_claude_4_6():
         pass
 
     kwargs = dummy_messages.calls[0]
-    assert kwargs["thinking"] == {"type": "adaptive"}
+    assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
+    # Sonnet 4.6 uses "max" for xhigh.
     assert kwargs["output_config"] == {"effort": "max"}
     assert "temperature" not in kwargs
+
+
+@pytest.mark.asyncio
+async def test_stream_uses_xhigh_effort_for_opus_4_7():
+    provider = AnthropicProvider.__new__(AnthropicProvider)
+    provider.config = ProviderConfig(model="claude-opus-4.7", thinking_level="xhigh")
+    dummy_messages = _DummyMessages()
+    provider._client = cast(Any, type("DummyClient", (), {"messages": dummy_messages})())
+
+    stream = await provider._stream_impl(messages=[])
+    async for _ in stream:
+        pass
+
+    kwargs = dummy_messages.calls[0]
+    assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
+    assert kwargs["output_config"] == {"effort": "xhigh"}
 
 
 @pytest.mark.asyncio
@@ -202,7 +238,44 @@ async def test_stream_uses_budget_thinking_for_non_adaptive_models():
         pass
 
     kwargs = dummy_messages.calls[0]
-    assert kwargs["thinking"] == ThinkingConfigEnabledParam(type="enabled", budget_tokens=8192)
+    # Non-adaptive thinking budgets bumped to match pi-mono (high=16384).
+    assert kwargs["thinking"] == ThinkingConfigEnabledParam(type="enabled", budget_tokens=16384)
+    # Interleaved-thinking beta header added for legacy thinking models.
+    assert (
+        kwargs.get("extra_headers", {}).get("anthropic-beta") == "interleaved-thinking-2025-05-14"
+    )
+
+
+@pytest.mark.asyncio
+async def test_stream_disables_thinking_explicitly_on_adaptive_models():
+    provider = AnthropicProvider.__new__(AnthropicProvider)
+    provider.config = ProviderConfig(model="claude-opus-4.7", thinking_level="none")
+    dummy_messages = _DummyMessages()
+    provider._client = cast(Any, type("DummyClient", (), {"messages": dummy_messages})())
+
+    stream = await provider._stream_impl(messages=[])
+    async for _ in stream:
+        pass
+
+    kwargs = dummy_messages.calls[0]
+    assert kwargs["thinking"] == {"type": "disabled"}
+
+
+def test_convert_assistant_message_emits_redacted_thinking(anthropic_provider: AnthropicProvider):
+    messages = [
+        UserMessage(content="hi"),
+        AssistantMessage(
+            content=[
+                ThinkingContent(thinking="", signature="opaque-payload"),
+                TextContent(text="ok"),
+            ]
+        ),
+    ]
+
+    converted = anthropic_provider._convert_messages(messages)
+    assistant_content = converted[1]["content"]
+    assert isinstance(assistant_content, list)
+    assert assistant_content[0] == {"type": "redacted_thinking", "data": "opaque-payload"}
 
 
 def test_anthropic_provider_uses_placeholder_for_local_auto_auth_mode():
