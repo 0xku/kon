@@ -436,6 +436,15 @@ async def run_single_turn(
 
         match chunk:
             case ThinkPart(think=t, signature=sig):
+                # Anthropic can emit signature-only ThinkParts (redacted/
+                # encrypted reasoning with no plain-text). Capture the
+                # signature but don't open a thinking UI block, otherwise
+                # the renderer shows an empty bordered stub.
+                if not t and current_state != StreamState.THINK:
+                    if sig:
+                        think_signature = sig
+                    continue
+
                 if current_state and current_state != StreamState.THINK:
                     for finalize_event in _finalize_current_state():
                         yield finalize_event
