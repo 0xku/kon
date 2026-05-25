@@ -663,7 +663,7 @@ class CommandsMixin:
             )
             return
 
-        self._show_selection_picker(items, SelectionMode.SESSION, max_label_width=90)
+        self._show_selection_picker(items, SelectionMode.SESSION, max_label_width=87)
 
     def _delete_selected_resume_session(self) -> None:
         if self._selection_mode != SelectionMode.SESSION:
