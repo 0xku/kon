@@ -56,7 +56,9 @@ def make_http_client() -> httpx.AsyncClient | None:
     # Returns None when verify is required so the SDK uses its own default client.
     if not kon_config.llm.tls.insecure_skip_verify:
         return None
-    return httpx.AsyncClient(verify=False)
+    return httpx.AsyncClient(
+        verify=False, timeout=httpx.Timeout(kon_config.llm.request_timeout_seconds)
+    )
 
 
 def resolve_api_key(
