@@ -439,11 +439,15 @@ async def run_single_turn(
                 # Anthropic can emit signature-only ThinkParts (redacted/
                 # encrypted reasoning with no plain-text). Capture the
                 # signature but don't open a thinking UI block, otherwise
-                # the renderer shows an empty bordered stub.
-                if not t and current_state != StreamState.THINK:
-                    if sig:
-                        think_signature = sig
-                    continue
+                # the renderer shows an empty bordered stub. Also trim any
+                # leading whitespace from the first visible thinking delta;
+                # Anthropic may emit an initial empty/space delta.
+                if current_state != StreamState.THINK:
+                    t = t.lstrip()
+                    if not t:
+                        if sig:
+                            think_signature = sig
+                        continue
 
                 if current_state and current_state != StreamState.THINK:
                     for finalize_event in _finalize_current_state():
