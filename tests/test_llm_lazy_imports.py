@@ -17,14 +17,14 @@ def _module_loaded(loaded: set[str], module_name: str) -> bool:
     return any(name == module_name or name.startswith(f"{module_name}.") for name in loaded)
 
 
-@pytest.mark.parametrize("import_target", ["kon.llm", "kon.ui.app", "kon.cli"])
+@pytest.mark.parametrize("import_target", ["kon.llm", "kon.ui.app", "kon.cli", "kon.headless"])
 def test_import_does_not_load_provider_sdks(import_target):
     loaded = _modules_loaded_after(import_target)
     assert not _module_loaded(loaded, "openai")
     assert not _module_loaded(loaded, "anthropic")
 
 
-@pytest.mark.parametrize("import_target", ["kon.cli"])
+@pytest.mark.parametrize("import_target", ["kon.cli", "kon.headless"])
 def test_import_does_not_load_textual(import_target):
     loaded = _modules_loaded_after(import_target)
     assert not _module_loaded(loaded, "textual")

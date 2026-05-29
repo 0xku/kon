@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 
 from kon import config
 
@@ -7,10 +8,17 @@ from .version import VERSION
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Kon TUI")
+    parser = argparse.ArgumentParser(description="Kon")
     parser.add_argument("--model", "-m", help="Model to use")
+    parser.add_argument("--provider", choices=sorted(PROVIDER_API_BY_NAME), help="Provider to use")
     parser.add_argument(
-        "--provider", "-p", choices=sorted(PROVIDER_API_BY_NAME), help="Provider to use"
+        "--prompt",
+        "-p",
+        nargs="?",
+        const="-",
+        default=None,
+        help="Run a single prompt non-interactively, then exit "
+        "(omit the value or pipe stdin to read the prompt from stdin)",
     )
     parser.add_argument("--api-key", "-k", help="API key")
     parser.add_argument("--base-url", "-u", help="Base URL for API")
@@ -50,7 +58,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    args = build_parser().parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.prompt is not None and (args.continue_recent or args.resume_session):
+        parser.error("-c/--continue and -r/--resume are not supported with -p/--prompt")
 
     if args.insecure_skip_verify:
         config.llm.tls.insecure_skip_verify = True
@@ -58,6 +70,24 @@ def main() -> None:
     extra_tools = (
         [t.strip() for t in args.extra_tools.split(",") if t.strip()] if args.extra_tools else None
     )
+
+    if args.prompt is not None:
+        from .headless import run_headless
+
+        raise SystemExit(
+            asyncio.run(
+                run_headless(
+                    prompt_arg=args.prompt,
+                    model=args.model,
+                    provider=args.provider,
+                    api_key=args.api_key,
+                    base_url=args.base_url,
+                    openai_compat_auth_mode=args.openai_compat_auth,
+                    anthropic_compat_auth_mode=args.anthropic_compat_auth,
+                    extra_tools=extra_tools,
+                )
+            )
+        )
 
     from .ui.app import run_tui
 
