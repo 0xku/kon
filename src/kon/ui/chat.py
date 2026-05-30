@@ -605,7 +605,7 @@ class ChatLog(VerticalScroll):
         prefix = "✓ "
         if warning:
             style = notice_color
-            prefix = "! "
+            prefix = "⚠ "
         if error:
             style = error_color
             prefix = "✗ "
