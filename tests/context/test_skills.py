@@ -409,6 +409,17 @@ class TestBuiltinCommandSkills:
         assert skill.path.endswith("kon/builtin_skills/init/SKILL.md")
         assert result.warnings == []
 
+    def test_loads_builtin_review_skill(self):
+        result = load_builtin_cmd_skills()
+
+        skill = next((s for s in result.skills if s.name == "review"), None)
+        assert skill is not None
+        assert skill.register_cmd is True
+        assert skill.cmd_info == "review code changes"
+        assert skill.bundled is True
+        assert skill.path.endswith("kon/builtin_skills/review/SKILL.md")
+        assert result.warnings == []
+
 
 class TestBundledSkillPromptRendering:
     def test_strip_frontmatter(self):
@@ -430,6 +441,18 @@ Body here
 
         assert "Create or update `AGENTS.md` for this repository." in prompt
         assert "focus on testing" in prompt
+        assert "$ARGUMENTS" not in prompt
+
+    def test_render_review_skill_mentions_pr_scenario(self):
+        skill = next((s for s in load_builtin_cmd_skills().skills if s.name == "review"), None)
+
+        assert skill is not None
+        prompt = render_skill_prompt(
+            skill, 'PR#68 feat/headless-mode "feat: add non-interactive prompt mode"'
+        )
+
+        assert "gh pr view 68" in prompt
+        assert 'PR#68 feat/headless-mode "feat: add non-interactive prompt mode"' in prompt
         assert "$ARGUMENTS" not in prompt
 
 
