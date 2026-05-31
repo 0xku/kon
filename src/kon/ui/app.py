@@ -1,11 +1,9 @@
+import argparse
 import asyncio
 import glob
 import os
 import time
-import tomllib
 from collections import deque
-from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
 from typing import ClassVar, Literal
 
 from rich.console import Console
@@ -15,6 +13,7 @@ from textual.binding import Binding
 
 from kon import config, consume_config_warnings, update_available_binaries
 from kon.tools_manager import ensure_tools, get_tool_path
+from kon.version import PACKAGE_NAME, VERSION
 
 from ..context.skills import (
     load_builtin_cmd_skills,
@@ -46,7 +45,7 @@ from ..events import (
     TurnStartEvent,
     WarningEvent,
 )
-from ..llm import PROVIDER_API_BY_NAME, BaseProvider
+from ..llm import BaseProvider
 from ..llm.base import AuthMode
 from ..notify import NotificationEvent, notify
 from ..permissions import ApprovalResponse
@@ -73,25 +72,7 @@ from .styles import get_styles
 from .tree import TreeSelector
 from .widgets import InfoBar, QueueDisplay, StatusLine, format_path
 
-
-def _get_package_name() -> str:
-    pyproject_path = Path(__file__).parent.parent.parent.parent / "pyproject.toml"
-    if pyproject_path.exists():
-        try:
-            data = tomllib.loads(pyproject_path.read_text())
-            return data["project"]["name"]
-        except Exception:
-            pass
-    return "kon-coding-agent"
-
-
-_PYPI_PACKAGE_NAME = _get_package_name()
 _CHANGELOG_URL = "https://github.com/0xku/kon/blob/main/CHANGELOG.md"
-
-try:
-    VERSION = version(_PYPI_PACKAGE_NAME)
-except PackageNotFoundError:
-    VERSION = "0.3.11"
 
 _NOTIFY_EVENTS = (AgentEndEvent, ToolApprovalEvent)
 _GIT_BRANCH_REFRESH_INTERVAL_SECONDS = 1.0
@@ -454,7 +435,7 @@ class Kon(CommandsMixin, SessionUIMixin, App[None]):
             self.query_one("#input-box", InputBox).set_fd_path(self._fd_path)
 
     async def _check_for_updates(self) -> None:
-        latest = await get_newer_pypi_version(_PYPI_PACKAGE_NAME, VERSION)
+        latest = await get_newer_pypi_version(PACKAGE_NAME, VERSION)
         if latest is None:
             return
 
@@ -1501,57 +1482,7 @@ def _print_exit_message(
     console.print()
 
 
-def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Kon TUI")
-    parser.add_argument("--model", "-m", help="Model to use")
-    parser.add_argument(
-        "--provider", "-p", choices=sorted(PROVIDER_API_BY_NAME), help="Provider to use"
-    )
-    parser.add_argument("--api-key", "-k", help="API key")
-    parser.add_argument("--base-url", "-u", help="Base URL for API")
-    parser.add_argument(
-        "--openai-compat-auth",
-        choices=("auto", "required", "none"),
-        help="Auth mode for OpenAI-compatible endpoints",
-    )
-    parser.add_argument(
-        "--anthropic-compat-auth",
-        choices=("auto", "required", "none"),
-        help="Auth mode for Anthropic-compatible endpoints",
-    )
-    parser.add_argument(
-        "--insecure-skip-verify",
-        action="store_true",
-        help="Skip TLS verification (e.g. self-signed certs on local providers)",
-    )
-    parser.add_argument(
-        "--continue",
-        "-c",
-        action="store_true",
-        dest="continue_recent",
-        help="Resume the most recent session",
-    )
-    parser.add_argument(
-        "--resume",
-        "-r",
-        dest="resume_session",
-        help="Resume a specific session by ID (full or unique prefix)",
-    )
-    parser.add_argument("--version", action="version", version=f"kon {VERSION}")
-    parser.add_argument(
-        "--extra-tools", help="Comma-separated extra tools to enable (e.g. web_search,web_fetch)"
-    )
-    args = parser.parse_args()
-
-    if args.insecure_skip_verify:
-        config.llm.tls.insecure_skip_verify = True
-
-    extra_tools = (
-        [t.strip() for t in args.extra_tools.split(",") if t.strip()] if args.extra_tools else None
-    )
-
+def run_tui(args: argparse.Namespace, *, extra_tools: list[str] | None) -> None:
     app = Kon(
         model=args.model,
         provider=args.provider,
@@ -1578,7 +1509,3 @@ def main():
 
     if hints or session_id:
         _print_exit_message(hints, session_id, duration, file_changes)
-
-
-if __name__ == "__main__":
-    main()

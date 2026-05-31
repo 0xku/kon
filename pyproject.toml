@@ -43,7 +43,7 @@ dev = [
 ]
 
 [project.scripts]
-kon = "kon.ui.app:main"
+kon = "kon.cli:main"
 
 [tool.ruff]
 target-version = "py312"

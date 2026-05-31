@@ -24,7 +24,7 @@ Use this skill when the user asks to cut a new Kon version, tag it, publish to P
 ## Files to bump
 
 - `pyproject.toml` → `[project].version`
-- `src/kon/ui/app.py` → fallback `VERSION = "..."`
+- `src/kon/version.py` → fallback `VERSION = "..."`
 - `uv.lock` → local package version block
 
 ## Release workflow

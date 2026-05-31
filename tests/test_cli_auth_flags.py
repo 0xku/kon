@@ -1,12 +1,4 @@
-import argparse
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Kon TUI")
-    parser.add_argument("--openai-compat-auth", choices=("auto", "required", "none"))
-    parser.add_argument("--anthropic-compat-auth", choices=("auto", "required", "none"))
-    parser.add_argument("--insecure-skip-verify", action="store_true")
-    return parser
+from kon.cli import build_parser
 
 
 def test_cli_auth_flags_accept_valid_values() -> None:

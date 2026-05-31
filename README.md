@@ -69,34 +69,48 @@ kon
 ```text
 usage: kon [-h] [--model MODEL]
            [--provider {azure-ai-foundry,deepseek,github-copilot,openai,openai-codex,openai-responses,zhipu}]
-           [--api-key API_KEY] [--base-url BASE_URL] [--continue]
-           [--resume RESUME_SESSION] [--version]
-           [--extra-tools EXTRA_TOOLS]
+           [--prompt [PROMPT]] [--api-key API_KEY] [--base-url BASE_URL]
+           [--openai-compat-auth {auto,required,none}]
+           [--anthropic-compat-auth {auto,required,none}]
+           [--insecure-skip-verify] [--continue] [--resume RESUME_SESSION]
+           [--version] [--extra-tools EXTRA_TOOLS]
 
-Kon TUI
+Kon
 
 options:
   -h, --help            show this help message and exit
   --model, -m MODEL     Model to use
-  --provider, -p {azure-ai-foundry,deepseek,github-copilot,openai,openai-codex,openai-responses,zhipu}
+  --provider {azure-ai-foundry,deepseek,github-copilot,openai,openai-codex,openai-responses,zhipu}
                         Provider to use
+  --prompt, -p [PROMPT]
+                        Run a single prompt non-interactively, then exit (omit
+                        the value or pipe stdin to read the prompt from stdin)
   --api-key, -k API_KEY
                         API key
   --base-url, -u BASE_URL
                         Base URL for API
+  --openai-compat-auth {auto,required,none}
+                        Auth mode for OpenAI-compatible endpoints
+  --anthropic-compat-auth {auto,required,none}
+                        Auth mode for Anthropic-compatible endpoints
+  --insecure-skip-verify
+                        Skip TLS verification (e.g. self-signed certs on local
+                        providers)
   --continue, -c        Resume the most recent session
   --resume, -r RESUME_SESSION
-                        Resume a specific session by ID (full or unique prefix)
+                        Resume a specific session by ID (full or unique
+                        prefix)
   --version             show program's version number and exit
   --extra-tools EXTRA_TOOLS
-                        Comma-separated extra tools to enable (e.g. web_search,web_fetch)
+                        Comma-separated extra tools to enable (e.g.
+                        web_search,web_fetch)
 ```
 
 ### Common examples
 
 ```bash
-# choose a model explicitly
-kon -p openai-codex -m gpt-5.4
+# choose a provider and model explicitly
+kon --provider openai-codex -m gpt-5.4
 
 # continue your latest session
 kon -c
@@ -119,6 +133,23 @@ kon --extra-tools web_search,web_fetch
 !!grep -r "TODO" src/
 !!find . -name "*.py" | head -20
 ```
+
+### Non-interactive
+
+Run a single prompt headlessly with `-p`/`--prompt`, then exit:
+
+```bash
+# pass the prompt inline
+kon -p "fix the failing test"
+
+# read the prompt from stdin
+cat task.md | kon -p
+
+# capture the final response
+kon -p "summarize this module" > out.txt
+```
+
+In this mode tools run **auto-approved** (no confirmation prompts). The final assistant response is printed to stdout on a clean finish; errors go to stderr. Exit codes: `0` completed, `1` error, `2` startup error (empty prompt or provider/init failure), `3` hit the max-turn limit. Session flags (`-c`/`--continue`, `-r`/`--resume`) aren't supported in this mode.
 
 ### Install from source
 
