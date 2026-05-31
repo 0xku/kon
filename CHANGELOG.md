@@ -6,6 +6,29 @@ All notable changes to this project will be documented in this file.
 
 - No changes yet.
 
+## 0.4.0 - 2026-05-31
+
+### Added
+
+- Added non-interactive `-p`/`--prompt` headless mode - @Meltedd.
+- Added pull request autocomplete.
+- Added review slash skill and updated review rubric.
+- Added thinking display settings.
+- Added diff rendering improvements.
+- Added git context toggle to settings UI and exported `set_git_context`.
+
+### Changed
+
+- Extracted Textual-free CLI entry point.
+
+### Fixed
+
+- Aligned agent context paths.
+- Clipped diff output lines.
+- Used warning symbol for chat notices.
+- Replaced `math.fma` for Python 3.12 compatibility.
+- Removed unsupported GLM-4.7 and GPT models below 5.5 from Copilot and Codex providers.
+
 ## 0.3.11 - 2026-05-29
 
 ### Added
