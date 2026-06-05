@@ -39,11 +39,11 @@ def stylize_badge_markers(text: Text, markers: Iterable[str]) -> None:
 
 
 class _StreamingMarkdownMixin:
-    """Line-buffered markdown with smooth partial-line preview.
+    """Line-buffered markdown streaming.
 
     Completed lines are committed through Kon's Rich markdown formatter so block-level
-    structure stays stable. The current unfinished line is rendered as a plain-text
-    tail, then coalesced into the next refresh frame so fast token streams don't
+    structure stays stable. The current unfinished line is buffered until a newline
+    arrives, then coalesced into the next refresh frame so fast token streams don't
     trigger one layout pass per token.
     """
 
@@ -75,11 +75,6 @@ class _StreamingMarkdownMixin:
             "\r"
         )
 
-        if self._pending:
-            if completed_needs_separator and display.plain:
-                display.append("\n")
-            display.append(self._pending, style=self._streaming_pending_style())
-
         if (
             not self._stream_finalized
             and completed_needs_separator
@@ -108,8 +103,7 @@ class _StreamingMarkdownMixin:
             self._completed += self._pending[: last_nl + 1]
             self._pending = self._pending[last_nl + 1 :]
             self._refresh_completed_display()
-
-        self._schedule_streaming_update()
+            self._schedule_streaming_update()
 
     def _flush_streaming(self) -> Text:
         self._stream_finalized = True

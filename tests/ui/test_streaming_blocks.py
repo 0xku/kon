@@ -10,17 +10,16 @@ def _capture_updates(block):
     return updates
 
 
-def test_content_block_previews_partial_line_without_cursor():
+def test_content_block_buffers_partial_line_until_newline():
     block = ContentBlock()
     updates = _capture_updates(block)
 
     block._append_streaming("hello")
 
-    assert updates
-    assert updates[-1].plain == "hello"
+    assert updates == []
 
 
-def test_content_block_commits_completed_lines_and_keeps_tail_live():
+def test_content_block_commits_completed_lines_and_buffers_tail():
     block = ContentBlock()
     updates = _capture_updates(block)
 
@@ -28,7 +27,7 @@ def test_content_block_commits_completed_lines_and_keeps_tail_live():
 
     assert updates
     assert "hello" in updates[-1].plain
-    assert updates[-1].plain.endswith("wor")
+    assert not updates[-1].plain.endswith("wor")
 
 
 def test_content_block_flush_finalizes_display():
@@ -47,23 +46,22 @@ def test_streaming_update_is_coalesced_until_refresh():
     block._streaming_update_label = updates.append  # type: ignore[method-assign]
     block.call_after_refresh = callbacks.append  # type: ignore[method-assign]
 
-    block._append_streaming("a")
-    block._append_streaming("b")
+    block._append_streaming("a\n")
+    block._append_streaming("b\n")
 
     assert len(callbacks) == 1
     assert updates == []
 
     callbacks[0]()
 
-    assert updates[-1].plain == "ab"
+    assert "a" in updates[-1].plain
+    assert "b" in updates[-1].plain
 
 
-def test_thinking_block_pending_preview_is_dim_and_italic():
+def test_thinking_block_buffers_partial_line_until_newline():
     block = ThinkingBlock()
     updates = _capture_updates(block)
 
     block._append_streaming("thinking")
 
-    assert updates[-1].plain == "thinking"
-    assert updates[-1].spans[0].style is not None
-    assert "italic" in str(updates[-1].spans[0].style)
+    assert updates == []
