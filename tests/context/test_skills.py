@@ -92,6 +92,40 @@ description: test
         assert result["description"] == "test"
         assert "#" not in result.get("name", "")
 
+    def test_inline_comments_ignored(self):
+        content = """---
+name: my-skill
+register_cmd: true  # also registers the skill in the /cmd popup
+cmd_info: slash hint # shown in menu
+---
+"""
+        result = _parse_frontmatter(content)
+
+        assert result["register_cmd"] == "true"
+        assert result["cmd_info"] == "slash hint"
+
+    def test_inline_comment_marker_preserved_inside_quotes(self):
+        content = """---
+name: my-skill
+description: "Uses # tags"
+cmd_info: 'hash # hint' # shown in menu
+---
+"""
+        result = _parse_frontmatter(content)
+
+        assert result["description"] == "Uses # tags"
+        assert result["cmd_info"] == "hash # hint"
+
+    def test_hash_without_preceding_space_preserved(self):
+        content = """---
+name: my-skill
+description: issue#123
+---
+"""
+        result = _parse_frontmatter(content)
+
+        assert result["description"] == "issue#123"
+
     def test_colon_in_value(self):
         content = """---
 name: my-skill

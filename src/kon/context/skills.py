@@ -63,6 +63,27 @@ class LoadSkillsResult:
     warnings: list[SkillWarning]
 
 
+def _strip_inline_comment(value: str) -> str:
+    quote_char = ""
+    escaped = False
+    for i, char in enumerate(value):
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\" and quote_char:
+            escaped = True
+            continue
+        if char in ('"', "'"):
+            if not quote_char:
+                quote_char = char
+            elif quote_char == char:
+                quote_char = ""
+            continue
+        if char == "#" and not quote_char and (i == 0 or value[i - 1].isspace()):
+            return value[:i].rstrip()
+    return value
+
+
 def _parse_frontmatter(content: str) -> dict[str, Any]:
     if not content.startswith("---"):
         return {}
@@ -81,7 +102,7 @@ def _parse_frontmatter(content: str) -> dict[str, Any]:
         if ":" in line:
             key, _, value = line.partition(":")
             key = key.strip()
-            value = value.strip()
+            value = _strip_inline_comment(value.strip())
             if value and value[0] in ('"', "'") and value[-1] == value[0]:
                 value = value[1:-1]
             result[key] = value
