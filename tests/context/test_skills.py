@@ -508,6 +508,22 @@ Body here
         assert f"References are relative to {skill_dir}." in prompt
         assert prompt.endswith("</skill>")
 
+    def test_render_skill_prompt_expands_custom_skill_body(self, tmp_path):
+        skill_dir = tmp_path / "my-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: my-skill\ndescription: Demo skill\n---\n\n"
+            "Read `templates/prompt.md` first.\n\nFocus: $ARGUMENTS\n",
+            encoding="utf-8",
+        )
+        skill = Skill(name="my-skill", description="Demo skill", path=str(skill_dir / "SKILL.md"))
+
+        prompt = render_skill_prompt(skill, "the parser")
+
+        assert "Read `templates/prompt.md` first." in prompt
+        assert "Focus: the parser" in prompt
+        assert f"References are relative to {skill_dir}." in prompt
+
     def test_render_skill_prompt_falls_back_without_wrapper_when_file_missing(self):
         skill = Skill(name="ghost", description="A skill", path="/nonexistent/SKILL.md")
 

@@ -616,7 +616,6 @@ class Kon(
 
         query_text = event.query_text.strip()
 
-        skill_prompt: str | None = None
         selected_skill_name = event.selected_skill_name
         highlighted_skill: str | None = None
         if selected_skill_name:
@@ -630,15 +629,10 @@ class Kon(
             )
             if selected_skill:
                 skill_query = event.selected_skill_query or ""
-                skill_prompt = self._build_skill_trigger_message(
+                display_text = self._build_skill_trigger_message(
                     selected_skill.name, selected_skill.description, skill_query
                 )
-                display_text = skill_prompt
-                query_text = (
-                    render_skill_prompt(selected_skill, skill_query)
-                    if selected_skill.bundled
-                    else skill_prompt
-                )
+                query_text = render_skill_prompt(selected_skill, skill_query)
                 highlighted_skill = selected_skill.name
 
         if self._is_running:
