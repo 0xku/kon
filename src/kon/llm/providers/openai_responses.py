@@ -2,10 +2,11 @@ import json
 from collections.abc import AsyncIterator
 from typing import Any
 
-from openai import APIStatusError, AsyncOpenAI, RateLimitError
+from openai import APIConnectionError, APIStatusError, AsyncOpenAI, RateLimitError
 
 from kon import config as kon_config
 
+from ...core.errors import format_error
 from ...core.types import (
     AssistantMessage,
     ImageContent,
@@ -254,7 +255,7 @@ class OpenAIResponsesProvider(BaseProvider):
                     return
 
         except Exception as e:
-            yield StreamError(error=str(e))
+            yield StreamError(error=format_error(e))
 
     def _build_params(
         self,
@@ -440,6 +441,9 @@ class OpenAIResponsesProvider(BaseProvider):
 
     def should_retry_for_error(self, error: Exception) -> bool:
         if isinstance(error, RateLimitError):
+            return True
+        # Transient network failures (includes APITimeoutError) are worth retrying.
+        if isinstance(error, APIConnectionError):
             return True
         if isinstance(error, APIStatusError):
             return error.status_code >= 500

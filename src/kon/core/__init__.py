@@ -1,3 +1,4 @@
+from .errors import format_error
 from .types import (
     AssistantMessage,
     ImageContent,
@@ -38,4 +39,5 @@ __all__ = [
     "ToolResultMessage",
     "Usage",
     "UserMessage",
+    "format_error",
 ]

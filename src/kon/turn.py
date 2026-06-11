@@ -34,6 +34,7 @@ from pydantic import ValidationError
 
 from . import config as kon_config
 from .async_utils import OperationCancelledError, await_or_cancel
+from .core.errors import format_error
 from .core.types import (
     AssistantMessage,
     FileChanges,
@@ -278,7 +279,10 @@ async def run_single_turn(
         except Exception as e:
             if provider.should_retry_for_error(e) and delay is not None:
                 yield RetryEvent(
-                    attempt=attempt_num + 1, total_attempts=len(delays), delay=delay, error=str(e)
+                    attempt=attempt_num + 1,
+                    total_attempts=len(delays),
+                    delay=delay,
+                    error=format_error(e),
                 )
                 if await _sleep_or_cancel(delay, cancel_event):
                     yield InterruptedEvent(message="Interrupted by user")
@@ -290,7 +294,7 @@ async def run_single_turn(
                     )
                     return
                 continue
-            yield ErrorEvent(error=str(e))  # Not retryable or retries exhausted
+            yield ErrorEvent(error=format_error(e))  # Not retryable or retries exhausted
             yield TurnEndEvent(
                 turn=turn, assistant_message=None, tool_results=[], stop_reason=StopReason.ERROR
             )

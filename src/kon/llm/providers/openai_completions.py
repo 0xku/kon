@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any, Literal, cast
 
-from openai import APIStatusError, AsyncOpenAI, RateLimitError
+from openai import APIConnectionError, APIStatusError, AsyncOpenAI, RateLimitError
 from openai.types.chat import (
     ChatCompletionChunk,
     ChatCompletionMessageParam,
@@ -12,6 +12,7 @@ from openai.types.chat import (
 
 from kon import config as kon_config
 
+from ...core.errors import format_error
 from ...core.types import (
     AssistantMessage,
     ImageContent,
@@ -268,7 +269,7 @@ class OpenAICompletionsProvider(BaseProvider):
             yield StreamDone(stop_reason=stop_reason)
 
         except Exception as e:
-            yield StreamError(error=str(e))
+            yield StreamError(error=format_error(e))
 
     def _convert_messages(
         self,
@@ -441,6 +442,9 @@ class OpenAICompletionsProvider(BaseProvider):
 
     def should_retry_for_error(self, error: Exception) -> bool:
         if isinstance(error, RateLimitError):
+            return True
+        # Transient network failures (includes APITimeoutError) are worth retrying.
+        if isinstance(error, APIConnectionError):
             return True
         if isinstance(error, APIStatusError):
             return error.status_code >= 500

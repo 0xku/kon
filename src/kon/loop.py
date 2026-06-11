@@ -17,6 +17,7 @@ from datetime import datetime
 from . import config as kon_config
 from .context import Context, formatted_agent_mds, formatted_git_context, formatted_skills
 from .core.compaction import generate_summary, is_overflow
+from .core.errors import format_error
 from .core.types import (
     AssistantMessage,
     ImageContent,
@@ -231,7 +232,7 @@ class Agent:
                 stop_reason = StopReason.LENGTH
 
         except Exception as e:  # intentionally broad — top-level boundary; crash = broken TUI
-            yield ErrorEvent(error=str(e))
+            yield ErrorEvent(error=format_error(e))
             stop_reason = StopReason.ERROR
 
         yield AgentEndEvent(stop_reason=stop_reason, total_turns=turn, total_usage=self._run_usage)
@@ -302,5 +303,7 @@ class Agent:
 
             yield CompactionEndEvent(tokens_before=tokens_before)
 
-        except Exception:
-            yield CompactionEndEvent(tokens_before=tokens_before, aborted=True)
+        except Exception as e:
+            yield CompactionEndEvent(
+                tokens_before=tokens_before, aborted=True, reason=format_error(e)
+            )
