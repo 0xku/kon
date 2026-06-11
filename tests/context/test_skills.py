@@ -542,7 +542,7 @@ class TestFormatSkillsForPrompt:
         assert "<available_skills>" in result
         assert "<name>test-skill</name>" in result
         assert "<description>A test skill</description>" in result
-        assert "<location>/path/to/SKILL.md</location>" in result
+        assert "<path>/path/to/SKILL.md</path>" in result
         assert "</available_skills>" in result
 
     def test_escapes_xml_chars(self):
