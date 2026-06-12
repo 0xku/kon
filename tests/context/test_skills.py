@@ -524,6 +524,40 @@ Body here
         assert "Focus: the parser" in prompt
         assert f"References are relative to {skill_dir}." in prompt
 
+    def test_render_skill_prompt_appends_query_when_body_lacks_arguments_placeholder(
+        self, tmp_path
+    ):
+        skill_dir = tmp_path / "no-args-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: no-args-skill\ndescription: Demo skill\n---\n\n"
+            "Run the linter and report findings.\n",
+            encoding="utf-8",
+        )
+        skill = Skill(
+            name="no-args-skill", description="Demo skill", path=str(skill_dir / "SKILL.md")
+        )
+
+        prompt = render_skill_prompt(skill, "only the ui module")
+
+        assert "Run the linter and report findings." in prompt
+        assert prompt.rstrip().endswith("only the ui module\n</skill>")
+
+    def test_render_skill_prompt_no_placeholder_and_empty_query_adds_nothing(self, tmp_path):
+        skill_dir = tmp_path / "no-args-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: no-args-skill\ndescription: Demo skill\n---\n\nBody only.\n",
+            encoding="utf-8",
+        )
+        skill = Skill(
+            name="no-args-skill", description="Demo skill", path=str(skill_dir / "SKILL.md")
+        )
+
+        prompt = render_skill_prompt(skill, "")
+
+        assert "Body only.\n</skill>" in prompt
+
     def test_render_skill_prompt_falls_back_without_wrapper_when_file_missing(self):
         skill = Skill(name="ghost", description="A skill", path="/nonexistent/SKILL.md")
 

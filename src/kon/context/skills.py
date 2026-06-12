@@ -324,7 +324,12 @@ def render_skill_prompt(skill: Skill, query: str) -> str:
     except Exception:
         return _build_fallback_skill_prompt(skill.description, query)
     template = strip_frontmatter(content)
-    rendered = template.replace("$ARGUMENTS", query).strip()
+    if "$ARGUMENTS" in template:
+        rendered = template.replace("$ARGUMENTS", query).strip()
+    else:
+        rendered = template.strip()
+        if query.strip():
+            rendered = f"{rendered}\n\n{query.strip()}"
     skill_dir = str(Path(skill.path).parent)
     return (
         f'<skill name="{escape_xml(skill.name)}" location="{escape_xml(skill.path)}">\n'
