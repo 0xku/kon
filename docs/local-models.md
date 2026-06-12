@@ -2,6 +2,12 @@
 
 This document provides detailed information about running and configuring local models with Kon.
 
+## Choosing a model
+
+Kon leans heavily on tool calling: every file read, edit, search, and skill invocation is a structured tool call. Very small models (roughly 8B and below, or aggressive quantizations) often produce malformed tool calls, ignore tools entirely, or fail to follow skill instructions — which looks like Kon "not working" when it's the model that can't drive the harness. If a tiny model keeps narrating instead of acting, or tool calls fail to parse, try a larger model before filing a bug.
+
+The combinations in the table below are known to work and are a good baseline; among them, prefer the largest one your hardware can serve at a usable speed.
+
 ## Tested Models
 
 > Tested on llama server build b8740

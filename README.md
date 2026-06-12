@@ -162,6 +162,19 @@ uv tool install .
 > [!WARNING]
 > Kon currently targets macOS and Linux. Windows is not tested yet.
 
+### Development and testing
+
+Run the test suite through `uv` so the dev dependencies are active — `pytest-asyncio` comes from the dev group, and a bare `pytest` without it fails every async test:
+
+```bash
+git clone https://github.com/kuutsav/kon
+cd kon
+uv sync --dev
+uv run python -m pytest
+```
+
+**Windows note:** if you see many failures like `async def functions are not natively supported`, you are running a pytest without `pytest-asyncio` — re-run with `uv run python -m pytest` as above. Remaining Windows-specific failures are worth reporting as issues.
+
 ---
 
 ## Why Kon
@@ -476,6 +489,9 @@ Important fields:
 - `register_cmd` - if `true`, exposes the skill as a slash command and includes it in the `/cmd` popup for manual triggering; use `only` to register it as a slash command without including it in the system prompt
 - `cmd_info` - short help text for the slash menu
 
+> [!NOTE]
+> Installed skills do **not** appear as slash commands by default — without `register_cmd` they are only described to the model, which invokes them on its own when relevant. Add `register_cmd: true` to a skill's frontmatter to trigger it manually as `/<skill-name>`.
+
 Validation highlights:
 
 - lowercase letters, numbers, and `-` only
@@ -538,7 +554,7 @@ Kon supports two permission modes:
 | `prompt` | Ask before mutating tool calls |
 | `auto` | Skip approval prompts |
 
-In `prompt` mode, non-mutating tools are allowed automatically, and some clearly read-only shell commands are also allowed.
+In `prompt` mode, non-mutating tools are allowed automatically, and some clearly read-only shell commands are also allowed. This includes the optional web tools: `web_search` and `web_fetch` are read-only, so they run **without an approval prompt** even in `prompt` mode. If you don't want the agent reaching the network at all, leave them out of `--extra-tools` / the `[tools] extra` config.
 
 Use `/permissions` to switch modes for the current session and persist the change to config.
 
