@@ -81,6 +81,7 @@ def test_spawn_argv_posix(monkeypatch):
 async def test_execute_runs_command_through_resolved_shell():
     result = await BashTool().execute(BashParams(command="echo $0"))
     assert result.success
+    assert result.result is not None
     assert os.environ.get("SHELL", "/bin/bash") in result.result
 
 
