@@ -17,7 +17,7 @@
 
 ## Committing code
 
-- If the user tells you to commit code, look at all the changes and create multile commits if needed bsaed on logical groupings
+- If the user tells you to commit code, look at all the changes and create multiple commits if needed based on logical groupings
 - Follow commit message conventions: `docs:`, `feat:`, `fix:`, `build:`, etc. for the commit prefix
 
 ## Pushing
