@@ -6,6 +6,41 @@ All notable changes to this project will be documented in this file.
 
 - No changes yet.
 
+## 0.4.1 - 2026-06-13
+
+### Added
+
+- Added Windows audio notification support without volume control - @clach04.
+- Added slash-only skills support.
+- Added skill-relative path resolution against each skill directory.
+
+### Changed
+
+- Split UI monoliths and restructured the turn streaming loop.
+- Improved markdown streaming performance with cached rendered blocks.
+- Kept blocking I/O off the UI event loop.
+- Updated CI, PyPI publishing, and pre-commit workflows.
+
+### Fixed
+
+- Skipped mkfifo-dependent tests on Windows - @clach04.
+- Fixed slash-command args for skills without `$ARGUMENTS` placeholders.
+- Updated e2e auth/config/session paths to `~/.config/kon`.
+- Persisted manual shell commands for export and resume.
+- Improved Windows Git Bash path handling.
+- Fixed manually triggered custom skill body expansion.
+- Skipped tool calls with stream-stalled truncated arguments.
+- Preserved error context and retried transient network failures.
+- Fixed skill frontmatter inline comment parsing.
+- Buffered partial streaming markdown lines.
+
+### Docs / Tests
+
+- Aligned web tools docs with default config.
+- Updated stale `.kon/skills` references to `.agents/skills`.
+- Added testing guide, local model guidance, and permission clarifications.
+- Improved Windows path and notification test coverage.
+
 ## 0.4.0 - 2026-05-31
 
 ### Added
