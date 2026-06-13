@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 from kon.context.skills import (
@@ -368,7 +369,10 @@ description: Global version
 """)
 
         monkeypatch.setattr("kon.context.skills.get_config_dir", lambda: global_dir)
-        monkeypatch.setenv("HOME", str(tmp_path))
+        if sys.platform == "win32":
+            monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        else:
+            monkeypatch.setenv("HOME", str(tmp_path))
 
         result = load_skills(str(repo))
 
