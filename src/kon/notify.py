@@ -82,6 +82,17 @@ def _play_linux(sound_path: Path, volume: float) -> None:
             )
 
 
+def _play_windows(sound_path: Path, volume: float) -> None:
+    # NOTE volume IGNORED!
+    _run(
+        [
+            "powershell",
+            "-c",
+            "(New-Object Media.SoundPlayer '" + str(sound_path) + "').PlaySync();",
+        ]
+    )
+
+
 def notify(event: NotificationEvent) -> None:
     sound_path = _sound_path(event)
     volume = config.notifications.volume
@@ -92,5 +103,7 @@ def notify(event: NotificationEvent) -> None:
             _play_macos(sound_path, volume)
         elif os_name == "linux":
             _play_linux(sound_path, volume)
+        elif os_name == "windows":
+            _play_windows(sound_path, volume)
     except Exception:
         return

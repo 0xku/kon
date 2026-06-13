@@ -104,10 +104,24 @@ def test_notify_uses_configured_linux_player_volumes(monkeypatch):
         assert commands == [expected_command]
 
 
-def test_notify_ignores_unsupported_platform(monkeypatch):
+def test_notify_plays_windows_sound(monkeypatch):
     commands: list[list[str]] = []
 
     monkeypatch.setattr(mod, "_platform", lambda: "windows")
+    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav"))
+    monkeypatch.setattr(mod, "_run", commands.append)
+
+    notify("error")
+
+    assert commands == [
+        ["powershell", "-c", "(New-Object Media.SoundPlayer '/sounds/error.wav').PlaySync();"]
+    ]
+
+
+def test_notify_ignores_unsupported_platform(monkeypatch):
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(mod, "_platform", lambda: "freebsd")
     monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav"))
     monkeypatch.setattr(mod, "_run", commands.append)
 
