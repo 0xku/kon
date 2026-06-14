@@ -397,7 +397,10 @@ description: Planning-only mode
 """)
 
         monkeypatch.setattr("kon.context.skills.get_config_dir", lambda: home_dir / ".agents")
-        monkeypatch.setenv("HOME", str(home_dir))
+        if sys.platform == "win32":
+            monkeypatch.setenv("USERPROFILE", str(home_dir))
+        else:
+            monkeypatch.setenv("HOME", str(home_dir))
 
         result = load_skills(str(home_dir))
 

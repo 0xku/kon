@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,9 @@ def default_config():
 
 
 def test_notify_plays_macos_sound(monkeypatch):
+    if sys.platform != "darwin":
+        pytest.skip("test for MacOS")
+
     commands: list[list[str]] = []
 
     monkeypatch.setattr(mod, "_platform", lambda: "darwin")
@@ -27,6 +31,9 @@ def test_notify_plays_macos_sound(monkeypatch):
 
 
 def test_notify_uses_configured_macos_volume(monkeypatch):
+    if sys.platform != "darwin":
+        pytest.skip("test for MacOS")
+
     commands: list[list[str]] = []
     set_config(Config({"notifications": {"volume": 0.25}}))
 
@@ -40,6 +47,9 @@ def test_notify_uses_configured_macos_volume(monkeypatch):
 
 
 def test_notify_plays_linux_sound_with_cached_player(monkeypatch):
+    if sys.platform != "linux":
+        pytest.skip("test for Linux")
+
     commands: list[list[str]] = []
 
     monkeypatch.setattr(mod, "_platform", lambda: "linux")
@@ -62,6 +72,9 @@ def test_notify_plays_linux_sound_with_cached_player(monkeypatch):
 
 
 def test_notify_uses_configured_linux_player_volumes(monkeypatch):
+    if sys.platform != "linux":
+        pytest.skip("test for Linux")
+
     set_config(Config({"notifications": {"volume": 0.25}}))
 
     cases = [
@@ -105,16 +118,19 @@ def test_notify_uses_configured_linux_player_volumes(monkeypatch):
 
 
 def test_notify_plays_windows_sound(monkeypatch):
+    if sys.platform != "win32":
+        pytest.skip("test for Windows")
+
     commands: list[list[str]] = []
 
     monkeypatch.setattr(mod, "_platform", lambda: "windows")
-    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav"))
+    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"\\sounds\\{event}.wav"))
     monkeypatch.setattr(mod, "_run", commands.append)
 
     notify("error")
 
     assert commands == [
-        ["powershell", "-c", "(New-Object Media.SoundPlayer '/sounds/error.wav').PlaySync();"]
+        ["powershell", "-c", "(New-Object Media.SoundPlayer '\\sounds\\error.wav').PlaySync();"]
     ]
 
 
