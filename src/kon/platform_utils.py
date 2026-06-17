@@ -73,7 +73,7 @@ def get_bash_dir() -> str | None:
         ]
         for path in paths:
             if path and os.path.exists(path):
-                return path
+                return as_posix_dir(path)
         return None
     return os.environ.get("SHELL") or "/bin/bash"
 
