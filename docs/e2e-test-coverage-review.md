@@ -83,7 +83,7 @@ Notable user-facing/runtime features added after `ae88aae` include:
 
 Before adding tests that mutate runtime settings, update the harness to isolate the user environment.
 
-The current script uses the real user config and sessions under `~/.kon`. That is risky for tests that exercise:
+The current script uses the real user config and sessions under `~/.config/kon`. That is risky for tests that exercise:
 
 - `/themes`
 - `/permissions`

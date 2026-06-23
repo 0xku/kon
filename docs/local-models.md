@@ -67,9 +67,9 @@ kon --model unsloth/gemma-4-26B-A4B-it-GGUF --provider openai \
   --openai-compat-auth none
 ```
 
-To avoid passing provider, model, and auth flags every time you start Kon, you can define your local setup in `~/.kon/config.toml`. This also allows you to tune compaction to trigger at a specific point relative to your model's context window.
+To avoid passing provider, model, and auth flags every time you start Kon, you can define your local setup in `~/.config/kon/config.toml`. This also allows you to tune compaction to trigger at a specific point relative to your model's context window.
 
-If this is your default setup, put it in `~/.kon/config.toml` instead:
+If this is your default setup, put it in `~/.config/kon/config.toml` instead:
 
 ```toml
 [llm]
