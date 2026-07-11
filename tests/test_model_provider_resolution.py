@@ -1,4 +1,4 @@
-from kon.llm.models import get_model
+from kon.llm.models import ApiType, get_model
 
 
 def test_get_model_prefers_provider_when_specified():
@@ -35,3 +35,42 @@ def test_get_model_resolves_deepseek_models():
 
     assert model is not None
     assert model.provider == "deepseek"
+
+
+def test_get_model_resolves_grok_4_5():
+    model = get_model("grok-4.5", "xai")
+
+    assert model is not None
+    assert model.provider == "xai"
+    assert model.api == ApiType.OPENAI_COMPLETIONS
+    assert model.base_url == "https://api.x.ai/v1"
+    assert model.max_tokens == 500000
+    assert model.context_window == 500000
+    assert model.supports_images is True
+    assert model.supports_thinking is True
+
+
+def test_get_model_resolves_gpt_5_6_codex_models():
+    for model_id in ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"):
+        model = get_model(model_id, "openai-codex")
+
+        assert model is not None
+        assert model.provider == "openai-codex"
+        assert model.api == ApiType.OPENAI_CODEX_RESPONSES
+        assert model.context_window == 372000
+        assert model.supports_images is True
+        assert model.supports_thinking is True
+        assert model.uses_responses_lite is True
+
+
+def test_get_model_resolves_gpt_5_6_copilot_models():
+    for model_id in ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"):
+        model = get_model(model_id, "github-copilot")
+
+        assert model is not None
+        assert model.provider == "github-copilot"
+        assert model.api == ApiType.GITHUB_COPILOT_RESPONSES
+        assert model.context_window == 372000
+        assert model.supports_images is True
+        assert model.supports_thinking is True
+        assert model.uses_responses_lite is False

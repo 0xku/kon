@@ -57,7 +57,16 @@ class FakeInputBox:
 
 class FakeProvider:
     name = "fake"
-    thinking_levels: ClassVar[list[str]] = ["none", "minimal", "low", "medium", "high", "xhigh"]
+    thinking_levels: ClassVar[list[str]] = [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra",
+    ]
 
     def __init__(self) -> None:
         self.thinking_level = "low"
@@ -168,6 +177,8 @@ def test_thinking_command_without_argument_opens_picker():
         ("medium", "medium", ""),
         ("high", "high", ""),
         ("xhigh", "xhigh", ""),
+        ("max", "max", ""),
+        ("ultra", "ultra", ""),
     ]
 
 

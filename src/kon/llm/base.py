@@ -12,7 +12,16 @@ from kon import config as kon_config
 
 from ..core.types import Message, StreamPart, ToolDefinition, Usage
 
-DEFAULT_THINKING_LEVELS: list[str] = ["none", "minimal", "low", "medium", "high", "xhigh"]
+DEFAULT_THINKING_LEVELS: list[str] = [
+    "none",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+    "ultra",
+]
 LOCAL_API_KEY_PLACEHOLDER = "kon-local"
 AuthMode = Literal["auto", "required", "none"]
 
@@ -21,6 +30,7 @@ ENV_API_KEY_MAP: dict[str, str] = {
     "google": "GEMINI_API_KEY",
     "azure-ai-foundry": "AZURE_AI_FOUNDRY_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
+    "xai": "XAI_API_KEY",
 }
 
 

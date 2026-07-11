@@ -2,8 +2,8 @@
 config_version = 6
 
 [llm]
-default_provider = "openai-codex" # "zhipu", "github-copilot", "openai-codex"
-default_model = "gpt-5.5"
+default_provider = "openai-codex" # "zhipu", "xai", "github-copilot", "openai-codex"
+default_model = "gpt-5.6-sol"
 # Optional API base URL override for the selected provider or local/self-hosted endpoint.
 # Leave empty to use the provider's default URL.
 default_base_url = ""
@@ -90,3 +90,10 @@ volume = 0.5
 # Then set in [llm]:
 # default_provider = "deepseek"
 # default_model = "deepseek-v4-flash"
+#
+# Example: xAI Grok provider
+# export XAI_API_KEY="xai-your-api-key"
+#
+# Then set in [llm]:
+# default_provider = "xai"
+# default_model = "grok-4.5"

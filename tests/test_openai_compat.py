@@ -21,6 +21,10 @@ def test_supports_developer_role_for_zhipu() -> None:
     assert supports_developer_role("zhipu", "https://api.z.ai/api/coding/paas/v4") is False
 
 
+def test_supports_developer_role_for_xai() -> None:
+    assert supports_developer_role("xai", "https://api.x.ai/v1") is False
+
+
 def test_detect_compat_disables_developer_role_for_local_api() -> None:
     compat = _detect_compat("openai", "http://127.0.0.1:1234/v1")
 
@@ -36,6 +40,14 @@ def test_detect_compat_uses_llama_gemma_for_local_gemma_models() -> None:
     assert compat.supports_developer_role is False
     assert compat.supports_reasoning_effort is False
     assert compat.thinking_format == "llama_gemma"
+
+
+def test_detect_compat_disables_unsupported_xai_openai_params() -> None:
+    compat = _detect_compat("xai", "https://api.x.ai/v1", "grok-4.5")
+
+    assert compat.supports_store is False
+    assert compat.supports_developer_role is False
+    assert compat.supports_reasoning_effort is False
 
 
 def test_openai_completions_prefixes_think_token_for_local_gemma() -> None:
@@ -177,7 +189,9 @@ def test_openai_codex_request_uses_session_for_prompt_caching() -> None:
     headers = provider._build_headers("token", "account")
 
     assert body["prompt_cache_key"] == "session-123"
-    assert headers["session_id"] == "session-123"
+    assert headers["version"] == "0.144.1"
+    assert headers["session-id"] == "session-123"
+    assert headers["thread-id"] == "session-123"
     assert headers["x-client-request-id"] == "session-123"
 
 
@@ -192,8 +206,29 @@ def test_openai_codex_request_omits_prompt_cache_fields_without_session() -> Non
     headers = provider._build_headers("token", "account")
 
     assert "prompt_cache_key" not in body
-    assert "session_id" not in headers
+    assert "session-id" not in headers
+    assert "thread-id" not in headers
     assert "conversation_id" not in headers
+
+
+def test_openai_codex_request_maps_ultra_to_max() -> None:
+    provider = OpenAICodexResponsesProvider(
+        ProviderConfig(model="gpt-5.6-sol", provider="openai-codex", thinking_level="ultra")
+    )
+
+    body = provider._build_request_body([], "You are helpful", None, None)
+
+    assert body["reasoning"] == {"effort": "max", "summary": "auto", "context": "all_turns"}
+
+
+def test_openai_responses_request_maps_ultra_to_max() -> None:
+    provider = OpenAIResponsesProvider(
+        ProviderConfig(model="gpt-5.6-sol", provider="openai", thinking_level="ultra")
+    )
+
+    params = provider._build_params([], "You are helpful", None, None)
+
+    assert params["reasoning"] == {"effort": "max", "summary": "auto"}
 
 
 @pytest.mark.parametrize(
@@ -262,6 +297,11 @@ class TestEnvVarsForProvider:
         env_vars = OpenAICompletionsProvider._env_vars_for_provider(config)
         assert env_vars == ("OPENAI_API_KEY",)
 
+    def test_xai_provider_uses_xai_then_openai_key(self) -> None:
+        config = ProviderConfig(provider="xai", base_url="https://api.x.ai/v1")
+        env_vars = OpenAICompletionsProvider._env_vars_for_provider(config)
+        assert env_vars == ("XAI_API_KEY", "OPENAI_API_KEY")
+
     def test_deepseek_base_url_without_provider_uses_deepseek_then_openai_key(self) -> None:
         config = ProviderConfig(base_url="https://api.deepseek.com/v1")
         env_vars = OpenAICompletionsProvider._env_vars_for_provider(config)
@@ -271,3 +311,8 @@ class TestEnvVarsForProvider:
         config = ProviderConfig(base_url="https://api.z.ai/api/coding/paas/v4")
         env_vars = OpenAICompletionsProvider._env_vars_for_provider(config)
         assert env_vars == ("ZAI_API_KEY", "OPENAI_API_KEY")
+
+    def test_xai_base_url_without_provider_uses_xai_then_openai_key(self) -> None:
+        config = ProviderConfig(base_url="https://api.x.ai/v1")
+        env_vars = OpenAICompletionsProvider._env_vars_for_provider(config)
+        assert env_vars == ("XAI_API_KEY", "OPENAI_API_KEY")

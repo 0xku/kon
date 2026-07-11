@@ -27,13 +27,18 @@ from ...core.types import (
     ToolDefinition,
     Usage,
 )
-from ..base import BaseProvider, LLMStream
+from ..base import DEFAULT_THINKING_LEVELS, BaseProvider, LLMStream
+from ..models import get_model
 from ..oauth.openai import get_valid_openai_credentials
 
 _MAX_RETRIES = 3
 _BASE_DELAY_MS = 1000
 _CONNECT_TIMEOUT_SECONDS = 30
 _OPENAI_BETA_RESPONSES_WEBSOCKETS = "responses_websockets=2026-02-06"
+_RESPONSES_LITE_HEADER = "x-openai-internal-codex-responses-lite"
+_RESPONSES_LITE_WS_METADATA_KEY = "ws_request_header_x_openai_internal_codex_responses_lite"
+# Codex routes Responses Lite models using this protocol compatibility version.
+_CODEX_PROTOCOL_VERSION = "0.144.1"
 _PROMPT_CACHE_KEY_MAX_LENGTH = 64
 _SESSION_WEBSOCKET_CACHE_TTL_SECONDS = 5 * 60
 _WS_FALLBACK_SESSIONS: set[str] = set()
@@ -207,7 +212,7 @@ def _schedule_websocket_expiry(session_id: str, entry: _CachedWebSocketConnectio
 
 class OpenAICodexResponsesProvider(BaseProvider):
     name = "openai-codex"
-    thinking_levels: list[str] = ["none", "minimal", "low", "medium", "high", "xhigh"]  # noqa: RUF012
+    thinking_levels: list[str] = DEFAULT_THINKING_LEVELS
 
     async def _stream_impl(
         self,
@@ -250,9 +255,9 @@ class OpenAICodexResponsesProvider(BaseProvider):
         helper = OpenAIResponsesProvider(self.config)
         return helper._convert_messages(messages, system_prompt)
 
-    def _build_tools(self, tools: list[ToolDefinition] | None) -> list[dict[str, Any]] | None:
+    def _build_tools(self, tools: list[ToolDefinition] | None) -> list[dict[str, Any]]:
         if not tools:
-            return None
+            return []
         return [
             {
                 "type": "function",
@@ -263,6 +268,39 @@ class OpenAICodexResponsesProvider(BaseProvider):
             }
             for tool in tools
         ]
+
+    def _uses_responses_lite(self) -> bool:
+        model = get_model(self.config.model, self.config.provider or self.name)
+        return bool(model and model.uses_responses_lite)
+
+    def _responses_lite_client_metadata(self) -> dict[str, str] | None:
+        if not self._uses_responses_lite():
+            return None
+        return {_RESPONSES_LITE_WS_METADATA_KEY: "true"}
+
+    def _strip_responses_lite_image_details(self, items: list[dict[str, Any]]) -> None:
+        for item in items:
+            content = item.get("content")
+            if isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") == "input_image":
+                        part.pop("detail", None)
+            output = item.get("output")
+            if isinstance(output, list):
+                for part in output:
+                    if isinstance(part, dict) and part.get("type") == "input_image":
+                        part.pop("detail", None)
+
+    def _build_websocket_payload(self, body: dict[str, Any]) -> dict[str, Any]:
+        payload = {"type": "response.create", **body}
+        client_metadata = self._responses_lite_client_metadata()
+        if client_metadata:
+            existing_metadata = payload.get("client_metadata")
+            if isinstance(existing_metadata, dict):
+                payload["client_metadata"] = {**existing_metadata, **client_metadata}
+            else:
+                payload["client_metadata"] = client_metadata
+        return payload
 
     def _resolve_url(self) -> str:
         base = (self.config.base_url or "https://chatgpt.com/backend-api").rstrip("/")
@@ -290,31 +328,55 @@ class OpenAICodexResponsesProvider(BaseProvider):
         tools: list[ToolDefinition] | None,
         temperature: float | None,
     ) -> dict[str, Any]:
+        uses_responses_lite = self._uses_responses_lite()
+        instructions = system_prompt or "You are a helpful assistant."
+        input_items = self._build_input(messages, None)
+        tool_payload = self._build_tools(tools)
+
+        if uses_responses_lite:
+            self._strip_responses_lite_image_details(input_items)
+            prefix: list[dict[str, Any]] = [
+                {"type": "additional_tools", "role": "developer", "tools": tool_payload}
+            ]
+            if instructions:
+                prefix.append(
+                    {
+                        "type": "message",
+                        "role": "developer",
+                        "content": [{"type": "input_text", "text": instructions}],
+                    }
+                )
+            input_items = [*prefix, *input_items]
+
         body: dict[str, Any] = {
             "model": self.config.model,
             "store": False,
             "stream": True,
-            "instructions": system_prompt or "You are a helpful assistant.",
-            "input": self._build_input(messages, None),
+            "input": input_items,
             "include": ["reasoning.encrypted_content"],
             "text": {"verbosity": "low"},
             "tool_choice": "auto",
-            "parallel_tool_calls": True,
+            "parallel_tool_calls": not uses_responses_lite,
         }
+        if not uses_responses_lite:
+            body["instructions"] = instructions
 
         prompt_cache_key = _clamp_prompt_cache_key(self.config.session_id)
         if prompt_cache_key:
             body["prompt_cache_key"] = prompt_cache_key
 
-        tool_payload = self._build_tools(tools)
-        if tool_payload:
+        if tool_payload and not uses_responses_lite:
             body["tools"] = tool_payload
 
         effort = self.config.thinking_level
         if effort and effort != "none":
             if effort == "minimal":
                 effort = "low"
+            elif effort == "ultra":
+                effort = "max"
             body["reasoning"] = {"effort": effort, "summary": "auto"}
+            if uses_responses_lite:
+                body["reasoning"]["context"] = "all_turns"
 
         temp = temperature if temperature is not None else self.config.temperature
         if temp is not None:
@@ -328,12 +390,16 @@ class OpenAICodexResponsesProvider(BaseProvider):
             "chatgpt-account-id": account_id,
             "OpenAI-Beta": "responses=experimental",
             "originator": "kon",
+            "version": _CODEX_PROTOCOL_VERSION,
             "accept": "text/event-stream",
             "content-type": "application/json",
             "User-Agent": "kon",
         }
+        if self._uses_responses_lite():
+            headers[_RESPONSES_LITE_HEADER] = "true"
         if self.config.session_id:
-            headers["session_id"] = self.config.session_id
+            headers["session-id"] = self.config.session_id
+            headers["thread-id"] = self.config.session_id
             headers["x-client-request-id"] = self.config.session_id
         return headers
 
@@ -344,9 +410,11 @@ class OpenAICodexResponsesProvider(BaseProvider):
             "chatgpt-account-id": account_id,
             "OpenAI-Beta": _OPENAI_BETA_RESPONSES_WEBSOCKETS,
             "originator": "kon",
+            "version": _CODEX_PROTOCOL_VERSION,
             "User-Agent": "kon",
             "x-client-request-id": request_id,
-            "session_id": request_id,
+            "session-id": request_id,
+            "thread-id": request_id,
         }
 
     async def _stream_codex(
@@ -733,7 +801,7 @@ class OpenAICodexResponsesProvider(BaseProvider):
         response_items: list[dict[str, Any]] = []
 
         try:
-            await entry.ws.send_json({"type": "response.create", **request_body})
+            await entry.ws.send_json(self._build_websocket_payload(request_body))
             saw_completion = False
             async for msg in entry.ws:
                 if msg.type in {aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.BINARY}:

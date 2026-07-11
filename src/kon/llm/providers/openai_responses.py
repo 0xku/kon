@@ -27,7 +27,13 @@ from ...core.types import (
     Usage,
     UserMessage,
 )
-from ..base import BaseProvider, LLMStream, ProviderConfig, make_http_client
+from ..base import (
+    DEFAULT_THINKING_LEVELS,
+    BaseProvider,
+    LLMStream,
+    ProviderConfig,
+    make_http_client,
+)
 from .openai_compat import supports_developer_role
 from .sanitize import sanitize_surrogates
 
@@ -41,7 +47,7 @@ COPILOT_HEADERS = {
 
 class OpenAIResponsesProvider(BaseProvider):
     name = "openai-responses"
-    thinking_levels: list[str] = ["none", "minimal", "low", "medium", "high", "xhigh"]  # noqa: RUF012
+    thinking_levels: list[str] = DEFAULT_THINKING_LEVELS
 
     def __init__(self, config: ProviderConfig, headers: dict[str, str] | None = None):
         super().__init__(config)
@@ -285,8 +291,11 @@ class OpenAIResponsesProvider(BaseProvider):
         if tools:
             params["tools"] = self._convert_tools(tools)
 
-        if self.config.thinking_level and self.config.thinking_level != "none":
-            params["reasoning"] = {"effort": self.config.thinking_level, "summary": "auto"}
+        effort = self.config.thinking_level
+        if effort and effort != "none":
+            if effort == "ultra":
+                effort = "max"
+            params["reasoning"] = {"effort": effort, "summary": "auto"}
             params["include"] = ["reasoning.encrypted_content"]
 
         return params

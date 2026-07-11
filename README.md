@@ -68,7 +68,7 @@ kon
 
 ```text
 usage: kon [-h] [--model MODEL]
-           [--provider {azure-ai-foundry,deepseek,github-copilot,openai,openai-codex,openai-responses,zhipu}]
+           [--provider {azure-ai-foundry,deepseek,github-copilot,openai,openai-codex,openai-responses,xai,zhipu}]
            [--prompt [PROMPT]] [--api-key API_KEY] [--base-url BASE_URL]
            [--openai-compat-auth {auto,required,none}]
            [--anthropic-compat-auth {auto,required,none}]
@@ -80,7 +80,7 @@ Kon
 options:
   -h, --help            show this help message and exit
   --model, -m MODEL     Model to use
-  --provider {azure-ai-foundry,deepseek,github-copilot,openai,openai-codex,openai-responses,zhipu}
+  --provider {azure-ai-foundry,deepseek,github-copilot,openai,openai-codex,openai-responses,xai,zhipu}
                         Provider to use
   --prompt, -p [PROMPT]
                         Run a single prompt non-interactively, then exit (omit
@@ -110,7 +110,7 @@ options:
 
 ```bash
 # choose a provider and model explicitly
-kon --provider openai-codex -m gpt-5.4
+kon --provider openai-codex -m gpt-5.6-sol
 
 # continue your latest session
 kon -c
@@ -213,10 +213,10 @@ Here is the full config shape:
 config_version = 6
 
 [llm]
-default_provider = "openai-codex" # "openai", "zhipu", "deepseek", "github-copilot", "openai-codex", "azure-ai-foundry"
-default_model = "gpt-5.5"
+default_provider = "openai-codex" # "openai", "zhipu", "deepseek", "xai", "github-copilot", "openai-codex", "azure-ai-foundry"
+default_model = "gpt-5.6-sol"
 default_base_url = ""             # override the provider endpoint (e.g. a local server)
-default_thinking_level = "low"    # "none" | "minimal" | "low" | "medium" | "high" | "xhigh"
+default_thinking_level = "low"    # "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra"
 tool_call_idle_timeout_seconds = 180
 request_timeout_seconds = 600
 
@@ -261,7 +261,7 @@ enabled = true                    # play audio when a task finishes, errors, or 
 volume = 0.5                      # 0.0 (muted) to 1.0 (full)
 ```
 
-The `ui.hidden_models` list trims the `/model` picker. Use a provider name (`"github-copilot"`) to hide every model from that provider, or `"provider:model"` (`"github-copilot:gpt-5.5-copilot"`) to hide a single model. Hidden models stay usable via config defaults or session resume — they're just removed from the picker.
+The `ui.hidden_models` list trims the `/model` picker. Use a provider name (`"github-copilot"`) to hide every model from that provider, or `"provider:model"` (`"github-copilot:gpt-5.6-sol"`) to hide a single model. Hidden models stay usable via config defaults or session resume — they're just removed from the picker.
 
 ### Core tools
 
@@ -527,6 +527,7 @@ Built-in provider support includes:
 - **OpenAI Responses / OpenAI-compatible endpoints**
 - **Azure AI Foundry**
 - **DeepSeek**
+- **xAI Grok**
 - **ZhiPu**
 
 Use `/model` in the TUI to switch between available configured models.
@@ -540,6 +541,7 @@ Kon supports both OAuth login flows and direct API-key configuration.
 - **OpenAI-compatible providers**: use `OPENAI_API_KEY` or provider-specific equivalents
   - OpenAI/default: `OPENAI_API_KEY` only
   - DeepSeek: `DEEPSEEK_API_KEY` first, then `OPENAI_API_KEY`
+  - xAI Grok: `XAI_API_KEY` first, then `OPENAI_API_KEY`
   - ZhiPu/ZAI: `ZAI_API_KEY` first, then `OPENAI_API_KEY`
 - **Azure AI Foundry**: set `AZURE_AI_FOUNDRY_API_KEY` and `AZURE_AI_FOUNDRY_BASE_URL`
 
@@ -548,6 +550,7 @@ You can also pass credentials directly on launch:
 ```bash
 kon --provider openai --model some-model --api-key "$OPENAI_API_KEY"
 kon --provider deepseek --model deepseek-v4-flash
+kon --provider xai --model grok-4.5
 ```
 
 ### Local models

@@ -6,12 +6,16 @@ from typing import Any, cast
 import pytest
 
 from kon.core.types import (
+    ImageContent,
+    Message,
     StopReason,
     StreamDone,
     StreamError,
     TextPart,
     ToolCallDelta,
     ToolCallStart,
+    ToolDefinition,
+    UserMessage,
 )
 from kon.llm.base import LLMStream, ProviderConfig
 from kon.llm.oauth.openai import OpenAICredentials
@@ -72,7 +76,9 @@ def test_websocket_headers_use_beta_and_request_id():
     )
     headers = provider._build_websocket_headers("token", "account")
     assert headers["OpenAI-Beta"] == "responses_websockets=2026-02-06"
-    assert headers["session_id"] == "session-123"
+    assert headers["version"] == "0.144.1"
+    assert headers["session-id"] == "session-123"
+    assert headers["thread-id"] == "session-123"
     assert headers["x-client-request-id"] == "session-123"
     assert "accept" not in headers
     assert "content-type" not in headers
@@ -104,6 +110,99 @@ def test_request_body_matches_pi_codex_defaults_and_clamps_cache_key():
     assert body["text"] == {"verbosity": "low"}
     assert body["prompt_cache_key"] == "x" * 64
     assert body["reasoning"] == {"effort": "low", "summary": "auto"}
+
+
+def test_request_body_maps_ultra_thinking_to_max():
+    provider = OpenAICodexResponsesProvider(
+        ProviderConfig(model="gpt-5.6-sol", provider="openai-codex", thinking_level="ultra")
+    )
+
+    body = provider._build_request_body([], None, None, None)
+
+    assert body["reasoning"] == {"effort": "max", "summary": "auto", "context": "all_turns"}
+
+
+def test_responses_lite_request_moves_instructions_and_tools_to_input():
+    provider = OpenAICodexResponsesProvider(
+        ProviderConfig(model="gpt-5.6-sol", provider="openai-codex", thinking_level="medium")
+    )
+    tool = ToolDefinition(
+        name="read", description="Read a file", parameters={"type": "object", "properties": {}}
+    )
+
+    body = provider._build_request_body([], "You are Kon", [tool], None)
+
+    assert "instructions" not in body
+    assert "tools" not in body
+    assert body["parallel_tool_calls"] is False
+    assert body["input"][:2] == [
+        {
+            "type": "additional_tools",
+            "role": "developer",
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "read",
+                    "description": "Read a file",
+                    "parameters": {"type": "object", "properties": {}},
+                    "strict": None,
+                }
+            ],
+        },
+        {
+            "type": "message",
+            "role": "developer",
+            "content": [{"type": "input_text", "text": "You are Kon"}],
+        },
+    ]
+    assert body["reasoning"] == {"effort": "medium", "summary": "auto", "context": "all_turns"}
+
+
+def test_responses_lite_request_strips_image_detail():
+    provider = OpenAICodexResponsesProvider(
+        ProviderConfig(model="gpt-5.6-sol", provider="openai-codex", thinking_level="none")
+    )
+    messages: list[Message] = [
+        UserMessage(content=[ImageContent(data="abc", mime_type="image/png")])
+    ]
+
+    body = provider._build_request_body(messages, None, None, None)
+
+    user_message = body["input"][2]
+    assert user_message["content"][0] == {
+        "type": "input_image",
+        "image_url": "data:image/png;base64,abc",
+    }
+
+
+def test_responses_lite_headers_and_websocket_metadata():
+    provider = OpenAICodexResponsesProvider(
+        ProviderConfig(model="gpt-5.6-sol", provider="openai-codex")
+    )
+
+    headers = provider._build_headers("token", "account")
+    payload = provider._build_websocket_payload({"model": "gpt-5.6-sol", "stream": True})
+
+    assert headers["x-openai-internal-codex-responses-lite"] == "true"
+    assert payload["client_metadata"] == {
+        "ws_request_header_x_openai_internal_codex_responses_lite": "true"
+    }
+
+
+def test_non_responses_lite_omits_lite_contract():
+    provider = OpenAICodexResponsesProvider(
+        ProviderConfig(model="gpt-5.5", provider="openai-codex", thinking_level="medium")
+    )
+
+    body = provider._build_request_body([], "You are Kon", None, None)
+    headers = provider._build_headers("token", "account")
+    payload = provider._build_websocket_payload({"model": "gpt-5.5", "stream": True})
+
+    assert body["instructions"] == "You are Kon"
+    assert body["parallel_tool_calls"] is True
+    assert body["reasoning"] == {"effort": "medium", "summary": "auto"}
+    assert "x-openai-internal-codex-responses-lite" not in headers
+    assert "client_metadata" not in payload
 
 
 @pytest.mark.parametrize(

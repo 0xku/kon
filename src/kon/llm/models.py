@@ -33,6 +33,7 @@ class Model:
     supports_thinking: bool  # Reasoning/thinking support
     context_window: int | None = None  # Max context (None = use config default)
     vision_model: str | None = None  # Fallback vision model if no native support
+    uses_responses_lite: bool = False  # Codex Responses Lite request contract
 
 
 MODELS: dict[str, Model] = {
@@ -75,6 +76,17 @@ MODELS: dict[str, Model] = {
         supports_images=False,
         supports_thinking=True,
     ),
+    # xAI models (OpenAI-compatible Chat Completions API)
+    "grok-4.5": Model(
+        id="grok-4.5",
+        provider="xai",
+        api=ApiType.OPENAI_COMPLETIONS,
+        base_url="https://api.x.ai/v1",
+        max_tokens=500000,
+        supports_images=True,
+        supports_thinking=True,
+        context_window=500000,
+    ),
     # GitHub Copilot models - Claude (uses Anthropic Messages API for thinking support)
     "claude-sonnet-4.6-copilot": Model(
         id="claude-sonnet-4.6",
@@ -95,6 +107,36 @@ MODELS: dict[str, Model] = {
         supports_thinking=True,
     ),
     # GitHub Copilot models - GPT/Codex (uses OpenAI Responses API)
+    "gpt-5.6-sol-copilot": Model(
+        id="gpt-5.6-sol",
+        provider="github-copilot",
+        api=ApiType.GITHUB_COPILOT_RESPONSES,
+        base_url="https://api.individual.githubcopilot.com",
+        max_tokens=8192 * 2,
+        supports_images=True,
+        supports_thinking=True,
+        context_window=372000,
+    ),
+    "gpt-5.6-terra-copilot": Model(
+        id="gpt-5.6-terra",
+        provider="github-copilot",
+        api=ApiType.GITHUB_COPILOT_RESPONSES,
+        base_url="https://api.individual.githubcopilot.com",
+        max_tokens=8192 * 2,
+        supports_images=True,
+        supports_thinking=True,
+        context_window=372000,
+    ),
+    "gpt-5.6-luna-copilot": Model(
+        id="gpt-5.6-luna",
+        provider="github-copilot",
+        api=ApiType.GITHUB_COPILOT_RESPONSES,
+        base_url="https://api.individual.githubcopilot.com",
+        max_tokens=8192 * 2,
+        supports_images=True,
+        supports_thinking=True,
+        context_window=372000,
+    ),
     "gpt-5.5-copilot": Model(
         id="gpt-5.5",
         provider="github-copilot",
@@ -105,6 +147,39 @@ MODELS: dict[str, Model] = {
         supports_thinking=True,
     ),
     # OpenAI Codex OAuth models (ChatGPT Plus/Pro subscription)
+    "gpt-5.6-sol": Model(
+        id="gpt-5.6-sol",
+        provider="openai-codex",
+        api=ApiType.OPENAI_CODEX_RESPONSES,
+        base_url="https://chatgpt.com/backend-api",
+        max_tokens=8192 * 2,
+        supports_images=True,
+        supports_thinking=True,
+        context_window=372000,
+        uses_responses_lite=True,
+    ),
+    "gpt-5.6-terra": Model(
+        id="gpt-5.6-terra",
+        provider="openai-codex",
+        api=ApiType.OPENAI_CODEX_RESPONSES,
+        base_url="https://chatgpt.com/backend-api",
+        max_tokens=8192 * 2,
+        supports_images=True,
+        supports_thinking=True,
+        context_window=372000,
+        uses_responses_lite=True,
+    ),
+    "gpt-5.6-luna": Model(
+        id="gpt-5.6-luna",
+        provider="openai-codex",
+        api=ApiType.OPENAI_CODEX_RESPONSES,
+        base_url="https://chatgpt.com/backend-api",
+        max_tokens=8192 * 2,
+        supports_images=True,
+        supports_thinking=True,
+        context_window=372000,
+        uses_responses_lite=True,
+    ),
     "gpt-5.5": Model(
         id="gpt-5.5",
         provider="openai-codex",
