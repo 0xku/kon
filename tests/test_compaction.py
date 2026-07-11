@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from kon.config import Config
-from kon.core.compaction import is_overflow
+from kon.core.compaction import is_overflow, summary_max_tokens
 from kon.core.types import (
     AssistantMessage,
     StopReason,
@@ -18,6 +18,21 @@ from kon.loop import Agent, AgentConfig
 from kon.runtime import ConversationRuntime
 from kon.session import CompactionEntry, Session
 from kon.ui.commands import CommandsMixin
+
+
+class _RecordingProvider(MockProvider):
+    """Captures the max_tokens passed to stream() for compaction assertions."""
+
+    def __init__(self, max_tokens: int) -> None:
+        from kon.llm.base import ProviderConfig
+
+        super().__init__(ProviderConfig(max_tokens=max_tokens))
+        self.stream_max_tokens: int | None = None
+
+    async def stream(self, *args, max_tokens: int | None = None, **kwargs):  # type: ignore[override]
+        self.stream_max_tokens = max_tokens
+        return await super().stream(*args, max_tokens=max_tokens, **kwargs)
+
 
 # ---------------------------------------------------------------------------
 # is_overflow tests
@@ -89,6 +104,32 @@ class TestIsOverflow:
         assert not is_overflow(
             usage, context_window=200_000, max_output_tokens=16_000, buffer_tokens=20_000
         )
+
+
+# ---------------------------------------------------------------------------
+# summary_max_tokens tests
+# ---------------------------------------------------------------------------
+
+
+class TestSummaryMaxTokens:
+    def test_clamps_to_remaining_budget(self):
+        # window 196_608, conversation ~180_500 -> budget under default 16_384
+        result = summary_max_tokens(196_608, 180_500, 16_384)
+        assert result == 196_608 - 180_500 - 256
+
+    def test_keeps_smaller_provider_default(self):
+        # plenty of room, provider default is the smaller limit
+        assert summary_max_tokens(200_000, 10_000, 4_096) == 4_096
+
+    def test_returns_none_when_window_unknown(self):
+        assert summary_max_tokens(None, 10_000, 16_384) is None
+
+    def test_returns_none_when_window_exhausted(self):
+        # conversation fills the window -> no room for a one-shot summary
+        assert summary_max_tokens(196_608, 196_500, 16_384) is None
+
+    def test_no_provider_default_uses_full_budget(self):
+        assert summary_max_tokens(200_000, 10_000, None) == 200_000 - 10_000 - 256
 
 
 # ---------------------------------------------------------------------------
@@ -328,7 +369,9 @@ class _TestCommandsApp(CommandsMixin):
     ) -> None:
         self._session = session
         self._provider = provider
-        self._agent = SimpleNamespace(system_prompt=system_prompt)
+        self._agent = SimpleNamespace(
+            system_prompt=system_prompt, config=AgentConfig(context_window=200_000)
+        )
         self._is_running = False
         self._chat = chat
         self._runtime = ConversationRuntime(
@@ -404,6 +447,29 @@ class TestCompactionUsageBacktracking:
         assert compaction_entries[0].tokens_before == 165
 
     @pytest.mark.asyncio
+    async def test_manual_compaction_clamps_summary_max_tokens_with_default_context_window(self):
+        session = Session.in_memory()
+        session.append_message(UserMessage(content="hi"))
+        session.append_message(
+            AssistantMessage(
+                content=[TextContent(text="usable")],
+                usage=Usage(input_tokens=183_605, output_tokens=10),
+            )
+        )
+
+        provider = _RecordingProvider(max_tokens=16_384)
+        app = _TestCommandsApp(session=session, provider=provider, chat=None)
+        assert app._runtime.agent is not None
+        app._runtime.agent.config.context_window = None
+
+        result = await app._runtime.compact_now()
+
+        assert result.tokens_before == 183_615
+        assert provider.stream_max_tokens is not None
+        assert provider.stream_max_tokens < 16_384
+        assert 183_615 + provider.stream_max_tokens < 200_000
+
+    @pytest.mark.asyncio
     async def test_auto_compaction_uses_latest_assistant_with_usage(self, monkeypatch):
         session = Session.in_memory()
         session.append_message(UserMessage(content="hi"))
@@ -450,6 +516,36 @@ class TestCompactionUsageBacktracking:
         compaction_entries = [e for e in session.entries if isinstance(e, CompactionEntry)]
         assert len(compaction_entries) == 1
         assert compaction_entries[0].tokens_before == 3650
+
+    @pytest.mark.asyncio
+    async def test_auto_compaction_clamps_summary_max_tokens(self):
+        # Reproduces issue #91: a conversation just over the threshold would
+        # request the provider's full default output budget and 400 by a token.
+        session = Session.in_memory()
+        session.append_message(UserMessage(content="hi"))
+        session.append_message(
+            AssistantMessage(
+                content=[TextContent(text="usable")],
+                usage=Usage(input_tokens=180_225, output_tokens=10),
+            )
+        )
+
+        # window 196_608, default output 16_384 -> raw request would be 196_619.
+        provider = _RecordingProvider(max_tokens=16_384)
+        agent = Agent(
+            provider=provider,
+            tools=[],
+            session=session,
+            system_prompt="system",
+            config=AgentConfig(context_window=196_608, max_output_tokens=16_384),
+        )
+
+        events = [e async for e in agent._check_compaction(StopReason.STOP, "system", None)]
+        assert [e.type for e in events] == ["compaction_start", "compaction_end"]
+        # input (180_235) + output must stay under the 196_608 window
+        assert provider.stream_max_tokens is not None
+        assert provider.stream_max_tokens < 16_384
+        assert 180_235 + provider.stream_max_tokens < 196_608
 
 
 # ---------------------------------------------------------------------------

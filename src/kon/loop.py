@@ -16,7 +16,7 @@ from datetime import datetime
 
 from . import config as kon_config
 from .context import Context, formatted_agent_mds, formatted_git_context, formatted_skills
-from .core.compaction import generate_summary, is_overflow
+from .core.compaction import generate_summary, is_overflow, summary_max_tokens
 from .core.errors import format_error
 from .core.types import (
     AssistantMessage,
@@ -278,9 +278,16 @@ class Agent:
         yield CompactionStartEvent()
 
         try:
-            # Use all_messages (uncompacted) for summarization so LLM sees full history
+            # Use all_messages (uncompacted) for summarization so LLM sees full history.
+            # Clamp the output budget so input + output can't exceed the context window
+            # (a default-budget summary request can otherwise 400 by a single token).
             summary = await generate_summary(
-                self.session.all_messages, self.provider, system_prompt
+                self.session.all_messages,
+                self.provider,
+                system_prompt,
+                max_tokens=summary_max_tokens(
+                    context_window, tokens_before, self.provider.config.max_tokens
+                ),
             )
 
             # Everything before is summarized, nothing "kept"

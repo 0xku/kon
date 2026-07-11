@@ -4,8 +4,9 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import config as kon_config
 from .context import Context
-from .core.compaction import generate_summary
+from .core.compaction import generate_summary, summary_max_tokens
 from .core.handoff import generate_handoff_prompt
 from .core.types import AssistantMessage, TextContent, UserMessage
 from .llm import (
@@ -456,7 +457,14 @@ class ConversationRuntime:
 
         tokens_before = self.latest_assistant_usage_tokens()
         summary = await generate_summary(
-            self.session.all_messages, self.provider, system_prompt=self.agent.system_prompt
+            self.session.all_messages,
+            self.provider,
+            system_prompt=self.agent.system_prompt,
+            max_tokens=summary_max_tokens(
+                self.agent.config.context_window or kon_config.agent.default_context_window,
+                tokens_before,
+                self.provider.config.max_tokens,
+            ),
         )
         self.session.append_compaction(
             summary=summary,

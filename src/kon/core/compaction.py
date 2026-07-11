@@ -50,6 +50,30 @@ in a directory are relevant, include the path to the directory.]
 ---"""
 
 
+# Margin reserved on top of the estimated summary input to absorb the
+# summarization prompt and tokenization rounding so the summary request can't
+# spill a token over the context window (e.g. a 1-token 400 against vLLM).
+_SUMMARY_MARGIN = 256
+
+
+def summary_max_tokens(
+    context_window: int | None, tokens_before: int, provider_max_tokens: int | None
+) -> int | None:
+    """Clamp the summary request's output budget so input + output fits the window.
+
+    ``tokens_before`` approximates the conversation size that gets re-sent as
+    input for summarization. Returns ``None`` (use the provider default) when the
+    window is unknown or already exhausted, since nothing sensible can be done
+    there without chunked compaction.
+    """
+    if context_window is None:
+        return None
+    budget = context_window - tokens_before - _SUMMARY_MARGIN
+    if budget <= 0:
+        return None
+    return min(provider_max_tokens, budget) if provider_max_tokens else budget
+
+
 def is_overflow(
     usage: Usage, context_window: int, max_output_tokens: int, buffer_tokens: int
 ) -> bool:
@@ -74,12 +98,17 @@ def _calculate_context_tokens(usage: Usage) -> int:
 
 
 async def generate_summary(
-    messages: list[Message], provider: BaseProvider, system_prompt: str | None = None
+    messages: list[Message],
+    provider: BaseProvider,
+    system_prompt: str | None = None,
+    max_tokens: int | None = None,
 ) -> str:
     """Send the full conversation + summarization prompt to the LLM, return summary text."""
     summary_messages: list[Message] = [*messages, UserMessage(content=SUMMARIZATION_PROMPT)]
 
-    stream = await provider.stream(summary_messages, system_prompt=system_prompt, tools=None)
+    stream = await provider.stream(
+        summary_messages, system_prompt=system_prompt, tools=None, max_tokens=max_tokens
+    )
 
     text_parts: list[str] = []
     async for part in stream:
