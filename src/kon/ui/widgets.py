@@ -30,6 +30,16 @@ def get_git_branch(cwd: str) -> str:
     return resolve_git_branch(cwd)
 
 
+def blend_hex(base: str, overlay: str, overlay_weight: float) -> str:
+    base_rgb = tuple(int(base[i : i + 2], 16) for i in (1, 3, 5))
+    overlay_rgb = tuple(int(overlay[i : i + 2], 16) for i in (1, 3, 5))
+    channels = tuple(
+        round((base_channel * (1 - overlay_weight)) + (overlay_channel * overlay_weight))
+        for base_channel, overlay_channel in zip(base_rgb, overlay_rgb, strict=True)
+    )
+    return f"#{channels[0]:02x}{channels[1]:02x}{channels[2]:02x}"
+
+
 class FileChangesModal(ModalScreen[None]):
     BINDINGS: ClassVar[list] = [("escape", "dismiss_modal", "Close")]
 
@@ -181,14 +191,17 @@ class InfoBar(Vertical):
             yield Label(self._format_row2_right(), id="info-row2-right")
 
     def _format_row1_left(self) -> Text:
-        result = Text(self._cwd)
+        colors = config.ui.colors
+        cwd_color = blend_hex(colors.info, colors.bg, 0.1)
+        result = Text(self._cwd, style=cwd_color)
         if self._git_branch:
-            result.append(" ", style="")
-            result.append(f"(⌥ {self._git_branch})", style=config.ui.colors.accent)
+            result.append(" ", style=colors.subtle)
+            result.append(f"(⌥ {self._git_branch})", style=colors.subtle)
         return result
 
     def _format_row1_right(self) -> Text:
-        result = Text()
+        color = config.ui.colors.subtle
+        result = Text(style=color)
         parts = []
 
         # Context size
@@ -224,9 +237,11 @@ class InfoBar(Vertical):
         n_files = len(self._file_changes)
         total_added = sum(a for a, _ in self._file_changes.values())
         total_removed = sum(r for _, r in self._file_changes.values())
-        result.append(" • ", style=config.ui.colors.dim)
+        result.append(" • ", style=config.ui.colors.subtle)
         self._file_changes_text_start = len(result.plain)
-        result.append(f"{n_files} file{'s' if n_files != 1 else ''}")
+        result.append(
+            f"{n_files} file{'s' if n_files != 1 else ''}", style=config.ui.colors.subtle
+        )
         result.append(f" +{total_added}", style=config.ui.colors.diff_added)
         result.append(f" -{total_removed}", style=config.ui.colors.diff_removed)
         return result
@@ -240,12 +255,10 @@ class InfoBar(Vertical):
         return result
 
     def _format_row2_right(self) -> Text:
-        model_text = self._model
-        if self._model_provider:
-            model_text = f"({self._model_provider}) {self._model}"
-        result = Text(model_text)
-        result.append(f" • {self._thinking_level}")
-        return result
+        parts = [
+            part for part in (self._model_provider, self._model, self._thinking_level) if part
+        ]
+        return Text(" • ".join(parts), style=config.ui.colors.subtle)
 
     def update_tokens(
         self,
@@ -453,8 +466,10 @@ class StatusLine(Horizontal):
             result.append(str(spinner_text), style=spinner_color)
         else:
             result.append(str(spinner_text), style=spinner_color)
-        result.append(" Working...", style=config.ui.colors.muted)
-        result.append(" (esc to interrupt)", style=dim_color)
+        result.append(" Working...", style=config.ui.colors.subtle)
+        result.append(" (", style=config.ui.colors.subtle)
+        result.append("esc", style=f"{dim_color} bold")
+        result.append(" to interrupt)", style=config.ui.colors.subtle)
         if self._streaming_token_count > 20:
             result.append(f" ↓{self._streaming_token_count!s}", style=dim_color)
         return result

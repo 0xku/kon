@@ -60,3 +60,12 @@ def test_info_bar_updates_git_branch_without_layout(monkeypatch):
 
     assert cast(Any, label.content).plain == "/tmp (⌥ feature)"
     assert label.layout_values == [False]
+
+
+def test_info_bar_model_footer_uses_dot_separators_without_provider_parens():
+    info_bar = InfoBar("/tmp", "gpt-5", thinking_level="high")
+    info_bar._model_provider = "openai"
+
+    rendered = info_bar._format_row2_right()
+
+    assert rendered.plain == "openai • gpt-5 • high"

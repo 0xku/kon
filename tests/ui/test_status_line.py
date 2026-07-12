@@ -1,5 +1,7 @@
 from typing import Any, cast
 
+from rich.style import Style
+
 from kon.ui.widgets import StatusLine
 
 
@@ -11,6 +13,22 @@ class _FakeLabel:
     def update(self, content="", *, layout: bool = True) -> None:
         self.content = content
         self.layout_values.append(layout)
+
+
+def test_status_line_interrupt_hint_bolds_esc():
+    status = StatusLine()
+    status._status = "running"
+
+    rendered = status._render_spinner()
+
+    assert rendered.plain.endswith(" Working... (esc to interrupt)")
+    esc_span = next(
+        span for span in rendered.spans if rendered.plain[span.start : span.end] == "esc"
+    )
+    esc_style = (
+        esc_span.style if isinstance(esc_span.style, Style) else Style.parse(str(esc_span.style))
+    )
+    assert esc_style.bold is True
 
 
 def test_status_line_formats_without_turn_tps(monkeypatch):

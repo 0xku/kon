@@ -214,13 +214,13 @@ def _format_bash_command_tokens(command: str) -> Text:
     Use a compact Catppuccin-ish palette similar to Codex's default command
     highlighting instead of dimming argv text.
     """
-    syntax = config.ui.colors.syntax_colors
-    command_style = syntax.command
-    arg_style = syntax.arg
-    option_style = syntax.option
-    operator_style = syntax.operator
-    string_style = syntax.string
-    variable_style = syntax.variable
+    colors = config.ui.colors
+    command_style = colors.markdown_code
+    arg_style = colors.muted
+    option_style = colors.accent
+    operator_style = colors.notice
+    string_style = colors.info
+    variable_style = colors.info
 
     text = Text()
     expect_command = True
@@ -274,7 +274,7 @@ def format_bash_command(text: str, width: int | None = None) -> Text:
     if not prompt:
         return highlighted
 
-    result = Text(prompt, style=config.ui.colors.dim)
+    result = Text(prompt, style=Style(color=config.ui.colors.muted, bold=True))
     result.append_text(highlighted)
     return result
 

@@ -3,6 +3,7 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.widgets import Label
 
+from kon import Config, config, reset_config, set_config
 from kon.core.types import ImageContent
 from kon.diff_display import DIFF_BG_PAD_MARKER
 from kon.ui.blocks import ToolBlock
@@ -40,6 +41,18 @@ def test_truncate_tool_output_text_adds_expand_hint():
         "4",
         "... (2 lines hidden • ctrl+o to expand)",
     ]
+
+
+def test_tool_markup_uses_theme_subtle_for_dim_text():
+    set_config(Config({"ui": {"theme": "gruvbox-dark"}}))
+    try:
+        expected_subtle = config.ui.colors.subtle
+        rendered = ToolBlock(name="read")._render_markup_safe("[dim](3 lines)[/dim]")
+    finally:
+        reset_config()
+
+    assert rendered.plain == "(3 lines)"
+    assert rendered.spans[0].style.color.name == expected_subtle
 
 
 def test_chat_log_toggles_all_tool_blocks(monkeypatch):

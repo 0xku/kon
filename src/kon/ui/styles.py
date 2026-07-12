@@ -40,9 +40,9 @@ Screen {{
     color: {colors.fg};
 }}
 
-/* Thinking block - dim italic */
+/* Thinking block - subtle italic */
 .thinking-block {{
-    color: {colors.dim};
+    color: {colors.subtle};
     text-style: italic;
     padding: 0 1 0 1;
     margin: 1 0 0 0;
@@ -56,7 +56,7 @@ Screen {{
 }}
 
 #thinking-content {{
-    color: {colors.dim};
+    color: {colors.subtle};
     text-style: italic;
 }}
 
@@ -146,7 +146,7 @@ Screen {{
 
 #tool-output,
 .tool-output {{
-    color: {colors.dim};
+    color: {colors.subtle};
     padding: 0 0 0 2;
 }}
 
@@ -235,12 +235,12 @@ Screen {{
     background: {colors.editor};
     border-top: solid {colors.editor};
     border-bottom: solid {colors.editor};
-    border-title-color: {colors.dim};
-    border-subtitle-color: {colors.dim};
+    border-title-color: {colors.subtle};
+    border-subtitle-color: {colors.subtle};
 }}
 
 #input-prefix {{
-    color: {colors.fg};
+    color: {colors.accent};
     text-style: bold;
 }}
 
@@ -289,7 +289,7 @@ Screen {{
 /* Info bar - kon style tmux-like bottom bar with two rows */
 .info-bar {{
     height: 2;
-    color: {colors.dim};
+    color: {colors.subtle};
 }}
 
 .info-bar.-completion-hidden {{

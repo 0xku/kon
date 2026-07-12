@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from rich.style import Style
-from rich.text import Text
+from rich.text import Span, Text
 from textual import events
 from textual.app import ComposeResult
 from textual.message import Message
@@ -181,7 +181,7 @@ class ThinkingBlock(_StreamingMarkdownMixin, Static):
         """Show collapsed thinking with configured line count."""
         lines = self._content.strip().split("\n")
         max_lines = self._get_max_lines()
-        style = f"{config.ui.colors.dim} italic"
+        style = f"{config.ui.colors.subtle} italic"
 
         if max_lines is None:
             # No truncation — show everything
@@ -215,7 +215,7 @@ class ThinkingBlock(_StreamingMarkdownMixin, Static):
         self.label.update(display)
 
     def _streaming_pending_style(self) -> str | None:
-        return f"{config.ui.colors.dim} italic"
+        return f"{config.ui.colors.subtle} italic"
 
     async def append(self, text: str) -> None:
         self._content += text
@@ -396,21 +396,45 @@ class ToolBlock(Static):
             return format_bash_command(content)
 
         rendered = self._render_markup_safe(content)
-        return Text(rendered.plain, style=config.ui.colors.dim)
+        return Text(rendered.plain, style=config.ui.colors.muted)
+
+    def _normalize_markup_style(self, style: str | Style) -> Style:
+        parsed = Style.parse(style) if isinstance(style, str) else style
+        colors = config.ui.colors
+        color_name = parsed.color.name if parsed.color is not None else None
+        color = None
+        if parsed.dim and parsed.color is None:
+            color = colors.subtle
+        elif color_name == "red":
+            color = colors.diff_removed
+        elif color_name == "green":
+            color = colors.diff_added
+        elif color_name == "yellow":
+            color = colors.notice
+
+        if color is None:
+            return parsed
+        return Style(
+            color=color, bold=parsed.bold, italic=parsed.italic, underline=parsed.underline
+        )
 
     def _render_markup_safe(self, content: str) -> Text:
         try:
             text = Text.from_markup(content)
         except Exception:
-            return Text(content)
+            return Text(content, style=config.ui.colors.subtle)
 
+        spans: list[Span] = []
         for span in text.spans:
-            style = span.style
-            if isinstance(style, str):
-                try:
-                    Style.parse(style)
-                except Exception:
-                    return Text(content)
+            try:
+                style = self._normalize_markup_style(span.style)
+            except Exception:
+                return Text(content, style=config.ui.colors.subtle)
+            spans.append(Span(span.start, span.end, style))
+        text.spans = spans
+
+        if not text.spans:
+            text.stylize(config.ui.colors.subtle)
 
         return text
 
@@ -563,7 +587,9 @@ class ToolBlock(Static):
         )
         if ui_details:
             rendered = (
-                self._render_markup_safe(ui_details) if self._result_markup else Text(ui_details)
+                self._render_markup_safe(ui_details)
+                if self._result_markup
+                else Text(ui_details, style=config.ui.colors.subtle)
             )
             is_diff_output = DIFF_BG_PAD_MARKER in rendered.plain
             rendered = self._pad_diff_backgrounds(rendered, output.size.width or self.size.width)
@@ -581,7 +607,7 @@ class ToolBlock(Static):
         elif self._images:
             image_count = len(self._images)
             image_label = "image" if image_count == 1 else "images"
-            rendered = Text(f"Attached {image_count} {image_label}", style=config.ui.colors.dim)
+            rendered = Text(f"Attached {image_count} {image_label}", style=config.ui.colors.subtle)
             self.remove_class("-compact")
             self.add_class("-with-details")
             output.remove_class("-hidden")

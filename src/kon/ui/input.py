@@ -234,7 +234,7 @@ class InputBox(Vertical):
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="input-row"):
-            yield Label("\u203a", id="input-prefix")
+            yield Label("$", id="input-prefix")
             yield Kon(self._transform_paste, id="input-textarea", classes="input-textarea")
 
     def on_mount(self) -> None:
