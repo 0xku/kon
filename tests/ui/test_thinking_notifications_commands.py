@@ -106,7 +106,6 @@ class FakeCommands(CommandsMixin):
         )
         self._runtime.provider = self._provider
         self._runtime.session = self._session
-        self.applied_thinking_levels: list[str] = []
 
     @contextmanager
     def batch_update(self):
@@ -122,9 +121,6 @@ class FakeCommands(CommandsMixin):
         if selector == "#input-box":
             return self.input_box
         raise AssertionError(f"Unexpected selector: {selector}")
-
-    def _apply_thinking_level_style(self, level: str) -> None:
-        self.applied_thinking_levels.append(level)
 
     def _sync_runtime_state(self) -> None:
         self._provider = self._runtime.provider
@@ -159,7 +155,6 @@ def test_thinking_command_with_argument_updates_current_session_only():
     assert fake._thinking_level == "high"
     assert session.thinking_levels == ["high"]
     assert fake.info_bar.thinking_levels == ["high"]
-    assert fake.applied_thinking_levels == ["high"]
     assert fake.chat.statuses == ["Thinking level changed to high"]
 
 

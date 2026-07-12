@@ -208,21 +208,10 @@ class Kon(
             id="info-bar",
         )
 
-    @staticmethod
-    def _thinking_level_class(level: str) -> str:
-        return f"-thinking-{level}"
-
-    def _apply_thinking_level_style(self, level: str) -> None:
-        input_box = self.query_one("#input-box", InputBox)
-        for name in ("none", "minimal", "low", "medium", "high", "xhigh"):
-            input_box.remove_class(self._thinking_level_class(name))
-        input_box.add_class(self._thinking_level_class(level))
-
     def _apply_theme(self, theme_id: str) -> None:
         type(self).CSS = get_styles()
         self.refresh_css(animate=False)
         self.query_one("#input-box", InputBox).refresh_theme()
-        self._apply_thinking_level_style(self._runtime.thinking_level)
 
     @property
     def _model(self) -> str:
@@ -367,7 +356,6 @@ class Kon(
         info_bar = self.query_one("#info-bar", InfoBar)
         info_bar.set_model(self._runtime.model, self._runtime.model_provider)
         info_bar.set_thinking_level(self._runtime.thinking_level)
-        self._apply_thinking_level_style(self._runtime.thinking_level)
 
         if (
             (self._continue_recent or self._resume_session)

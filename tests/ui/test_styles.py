@@ -23,3 +23,10 @@ def test_completion_hidden_info_bar_collapses_fixed_row():
 
     assert "display: none;" in info_bar_hidden_block
     assert "height: 0;" in info_bar_hidden_block
+
+
+def test_input_color_does_not_vary_by_thinking_level():
+    styles = get_styles()
+
+    assert "#input-box.-thinking-" not in styles
+    assert "#input-box.-shell-command {" in styles

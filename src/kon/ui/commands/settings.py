@@ -118,7 +118,6 @@ class SettingsCommands(CommandSupport):
 
         info_bar = self.query_one("#info-bar", InfoBar)
         info_bar.set_thinking_level(level)
-        self._apply_thinking_level_style(level)
 
         chat = self.query_one("#chat-log", ChatLog)
         chat.show_status(f"Thinking level changed to {level}")

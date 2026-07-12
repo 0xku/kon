@@ -98,7 +98,6 @@ class _TestSessionApp(SessionUIMixin):
         self._status_line = _FakeStatusLine()
         self._input_box = _FakeInputBox()
         self.rendered_session: Session | None = None
-        self.applied_thinking_level: str | None = None
 
     def query_one(self, selector: str, cls=None):
         if selector == "#chat-log":
@@ -113,9 +112,6 @@ class _TestSessionApp(SessionUIMixin):
 
     def _render_session_entries(self, session: Session) -> None:
         self.rendered_session = session
-
-    def _apply_thinking_level_style(self, level: str) -> None:
-        self.applied_thinking_level = level
 
     def _sync_runtime_state(self) -> None:
         self._model = self._runtime.model

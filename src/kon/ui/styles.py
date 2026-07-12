@@ -18,9 +18,6 @@ def get_styles() -> str:
     colors = config.ui.colors
     approval_bg = _blend_hex(colors.bg, colors.accent, overlay_weight=0.05)
     shell_bg = _blend_hex(colors.editor, colors.success, overlay_weight=0.15)
-    thinking_medium_bg = _blend_hex(colors.editor, colors.accent, overlay_weight=0.08)
-    thinking_high_bg = _blend_hex(colors.editor, colors.accent, overlay_weight=0.18)
-    thinking_xhigh_bg = _blend_hex(colors.editor, colors.badge.label, overlay_weight=0.18)
 
     return f"""
 Screen {{
@@ -242,32 +239,6 @@ Screen {{
 #input-prefix {{
     color: {colors.accent};
     text-style: bold;
-}}
-
-#input-box.-thinking-none,
-#input-box.-thinking-minimal,
-#input-box.-thinking-low {{
-    background: {colors.editor};
-    border-top: solid {colors.editor};
-    border-bottom: solid {colors.editor};
-}}
-
-#input-box.-thinking-medium {{
-    background: {thinking_medium_bg};
-    border-top: solid {thinking_medium_bg};
-    border-bottom: solid {thinking_medium_bg};
-}}
-
-#input-box.-thinking-high {{
-    background: {thinking_high_bg};
-    border-top: solid {thinking_high_bg};
-    border-bottom: solid {thinking_high_bg};
-}}
-
-#input-box.-thinking-xhigh {{
-    background: {thinking_xhigh_bg};
-    border-top: solid {thinking_xhigh_bg};
-    border-bottom: solid {thinking_xhigh_bg};
 }}
 
 #input-box.-shell-command {{

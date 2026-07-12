@@ -39,7 +39,6 @@ class SessionUIMixin:
 
     # Methods from other mixins/main class
     def _sync_runtime_state(self) -> None: ...
-    def _apply_thinking_level_style(self, level: str) -> None: ...
 
     def _resolve_system_prompt(self, session: Session | None = None) -> str:
         return self._runtime.resolve_system_prompt(session)
@@ -222,7 +221,6 @@ class SessionUIMixin:
             info_bar.set_model(model_id, provider)
 
         info_bar.set_thinking_level(self._runtime.thinking_level)
-        self._apply_thinking_level_style(self._runtime.thinking_level)
 
         await chat.remove_all_children()
 
