@@ -360,11 +360,13 @@ Kon includes built-in themes and supports switching from inside the app:
 - `gruvbox-dark`
 - `gruvbox-light`
 - `kanagawa`
+- `kanagawa-dragon`
 - `monokai`
 - `nightowl`
 - `nord`
 - `one-dark`
 - `one-light`
+- `osaka-jade`
 - `palenight`
 - `rosepine`
 - `solarized-dark`

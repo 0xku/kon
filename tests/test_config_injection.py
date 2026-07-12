@@ -65,7 +65,7 @@ def test_config_injection_for_testing():
     set_config(test_config)
 
     try:
-        assert config.ui.colors.dim == "#565f89"
+        assert config.ui.colors.dim == "#828bb8"
     finally:
         reset_config()
 

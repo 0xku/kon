@@ -12,6 +12,7 @@ NEW_THEME_IDS = [
     "kanagawa",
     "monokai",
     "nightowl",
+    "osaka-jade",
     "palenight",
     "rosepine",
 ]
