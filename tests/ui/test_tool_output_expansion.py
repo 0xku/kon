@@ -1,4 +1,5 @@
 import pytest
+from rich.style import Style
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.widgets import Label
@@ -52,7 +53,10 @@ def test_tool_markup_uses_theme_subtle_for_dim_text():
         reset_config()
 
     assert rendered.plain == "(3 lines)"
-    assert rendered.spans[0].style.color.name == expected_subtle
+    style = rendered.spans[0].style
+    assert isinstance(style, Style)
+    assert style.color is not None
+    assert style.color.name == expected_subtle
 
 
 def test_chat_log_toggles_all_tool_blocks(monkeypatch):
