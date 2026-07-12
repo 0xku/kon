@@ -14,3 +14,4 @@ class SelectionMode(StrEnum):
     NOTIFICATIONS = "notifications"
     SETTINGS = "settings"
     TREE = "tree"
+    URL = "url"

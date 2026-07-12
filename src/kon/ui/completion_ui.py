@@ -7,6 +7,7 @@ classes created with it, and this mixin is a plain class.
 
 from __future__ import annotations
 
+import webbrowser
 from typing import TYPE_CHECKING, Any
 
 from textual import on
@@ -197,6 +198,8 @@ class CompletionUIMixin:
                     self._set_bottom_info_displaced(False)
             case SelectionMode.SESSION:
                 self.run_worker(self._load_session(item.value.path), exclusive=True)
+            case SelectionMode.URL:
+                webbrowser.open(item.value)
             case SelectionMode.TREE:
                 pass
             case SelectionMode.MODEL:

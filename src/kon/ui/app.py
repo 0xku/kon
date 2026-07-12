@@ -14,6 +14,7 @@ Behaviour is split across focused mixins:
 import asyncio
 import os
 import time
+import webbrowser
 from collections import deque
 from typing import ClassVar
 
@@ -43,7 +44,7 @@ from .blocks import HandoffLinkBlock, LaunchWarning
 from .chat import ChatLog
 from .commands import CommandsMixin
 from .completion_ui import CompletionUIMixin
-from .floating_list import FloatingList
+from .floating_list import FloatingList, ListItem
 from .input import InputBox
 from .queue_ui import QueuedPrompt, QueueUIMixin
 from .selection_mode import SelectionMode
@@ -51,6 +52,7 @@ from .session_ui import SessionUIMixin
 from .startup import StartupMixin
 from .styles import get_styles
 from .tree import TreeSelector
+from .urls import extract_urls, url_label
 from .widgets import InfoBar, QueueDisplay, StatusLine, format_path
 
 _GIT_BRANCH_REFRESH_INTERVAL_SECONDS = 1.0
@@ -78,6 +80,7 @@ class Kon(
         Binding("right", "tree_page_down", "Tree page down", priority=True),
         ("ctrl+t", "cycle_thinking_level", "Cycle thinking level"),
         Binding("ctrl+o", "toggle_tool_output", "Toggle tool output", priority=True),
+        Binding("ctrl+l", "open_response_url", "Open response URL", priority=True),
         Binding("ctrl+shift+t", "toggle_thinking", "Toggle thinking", priority=True),
         Binding("shift+tab", "cycle_permission_mode", "Cycle permission mode", priority=True),
     ]
@@ -488,6 +491,35 @@ class Kon(
         expanded = chat.toggle_tool_output_expanded()
         status = "expanded" if expanded else "collapsed"
         chat.show_status(f"Tool output {status}")
+
+    def action_open_response_url(self) -> None:
+        if self._selection_mode is not None:
+            return
+
+        session = self._runtime.session
+        if session is None:
+            return
+
+        from ..core.types import AssistantMessage, TextContent
+
+        urls = extract_urls(
+            [
+                part.text
+                for message in session.all_messages
+                if isinstance(message, AssistantMessage)
+                for part in message.content
+                if isinstance(part, TextContent)
+            ]
+        )
+        if not urls:
+            self.notify("No URLs in responses", timeout=2, severity="information")
+            return
+        if len(urls) == 1:
+            webbrowser.open(urls[0])
+            return
+
+        items = [ListItem(value=url, label=url_label(url), description=url) for url in urls]
+        self._show_selection_picker(items, SelectionMode.URL, max_label_width=40)
 
     def action_toggle_thinking(self) -> None:
         self._hide_thinking = not self._hide_thinking

@@ -15,5 +15,6 @@ def test_thinking_and_permission_mode_keybindings():
 
     assert bindings["ctrl+t"] == "cycle_thinking_level"
     assert bindings["ctrl+o"] == "toggle_tool_output"
+    assert bindings["ctrl+l"] == "open_response_url"
     assert bindings["ctrl+shift+t"] == "toggle_thinking"
     assert bindings["shift+tab"] == "cycle_permission_mode"
