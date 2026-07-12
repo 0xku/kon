@@ -439,8 +439,18 @@ class ChatLog(VerticalScroll):
         self._scroll_if_anchored(animate=False)
         return block
 
+    def _compact_content_after_header_only_tool(self, block: ContentBlock) -> None:
+        # A header-only tool (for example, web_search with a result-count
+        # summary) should flow directly into the response. Tool results with
+        # detail output retain the normal separating line. This applies both
+        # while streaming and when reconstructing a saved session.
+        previous = self.children[-1] if self.children else None
+        if isinstance(previous, ToolBlock) and not previous.has_class("-with-details"):
+            block.add_class("-compact")
+
     def start_content(self) -> ContentBlock:
         block = ContentBlock()
+        self._compact_content_after_header_only_tool(block)
         self.mount(block)
         self._scroll_if_anchored(animate=False)
         self._current_block = block
@@ -448,6 +458,7 @@ class ChatLog(VerticalScroll):
 
     def add_content(self, content: str) -> ContentBlock:
         block = ContentBlock(content, finalized=True)
+        self._compact_content_after_header_only_tool(block)
         self.mount(block)
         self._scroll_if_anchored(animate=False)
         return block
