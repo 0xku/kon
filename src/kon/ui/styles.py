@@ -17,7 +17,8 @@ def _blend_hex(base: str, overlay: str, overlay_weight: float) -> str:
 def get_styles() -> str:
     colors = config.ui.colors
     approval_bg = _blend_hex(colors.bg, colors.accent, overlay_weight=0.05)
-    shell_bg = _blend_hex(colors.editor, colors.success, overlay_weight=0.15)
+    shell_bg = _blend_hex(colors.editor, colors.success, overlay_weight=0.12)
+    shell_llm_bg = _blend_hex(colors.editor, colors.info, overlay_weight=0.18)
 
     return f"""
 Screen {{
@@ -249,6 +250,16 @@ Screen {{
 
 #input-box.-shell-command .input-textarea {{
     color: {colors.success};
+}}
+
+#input-box.-shell-command-llm {{
+    background: {shell_llm_bg};
+    border-top: solid {shell_llm_bg};
+    border-bottom: solid {shell_llm_bg};
+}}
+
+#input-box.-shell-command-llm .input-textarea {{
+    color: {colors.info};
 }}
 
 /* Completion list - between input and info bar */

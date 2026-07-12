@@ -50,6 +50,7 @@ _IMAGE_MARKER_RE = re.compile(r"\[Image #(\d+) [^\]\n]+\]")
 _IMAGE_NAME_LENGTH = 12
 _SKILL_TRIGGER_MARKER = "\u2063"
 _SHELL_COMMAND_CLASS = "-shell-command"
+_SHELL_COMMAND_LLM_CLASS = "-shell-command-llm"
 _TEXTAREA_THEME = "kon-input"
 
 
@@ -69,9 +70,15 @@ class Kon(TextArea):
             self.lines_above = lines_above
             self.lines_below = lines_below
 
-    def __init__(self, on_paste: Callable[[str], str], **kwargs) -> None:
+    def __init__(
+        self,
+        on_paste: Callable[[str], str],
+        on_empty_key: Callable[[str], bool] | None = None,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self._on_paste_transform = on_paste
+        self._on_empty_key = on_empty_key or (lambda _key: False)
 
     async def _on_key(self, event: events.Key) -> None:
         future = getattr(self.app, "_approval_future", None)
@@ -83,6 +90,10 @@ class Kon(TextArea):
             if callable(app_on_key):
                 app_on_key(event)
                 return
+        empty_key = "!" if event.character == "!" else event.key
+        if not self.text and self._on_empty_key(empty_key):
+            event.prevent_default()
+            return
         await super()._on_key(event)
 
     async def _on_paste(self, event: events.Paste) -> None:
@@ -231,11 +242,19 @@ class InputBox(Vertical):
 
         # Skill command triggers selected from slash autocomplete
         self._selected_skill_commands: list[str] = []
+        self._shell_mode = 0
+        self._prefix: Label | None = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="input-row"):
-            yield Label("$", id="input-prefix")
-            yield Kon(self._transform_paste, id="input-textarea", classes="input-textarea")
+            self._prefix = Label("$", id="input-prefix")
+            yield self._prefix
+            yield Kon(
+                self._transform_paste,
+                self._handle_empty_key,
+                id="input-textarea",
+                classes="input-textarea",
+            )
 
     def on_mount(self) -> None:
         textarea = self.query_one("#input-textarea", TextArea)
@@ -244,6 +263,22 @@ class InputBox(Vertical):
         textarea.cursor_blink = False
         textarea.show_line_numbers = False
         textarea.highlight_cursor_line = False
+        self._set_shell_mode(self._shell_mode)
+
+    def _handle_empty_key(self, key: str) -> bool:
+        if key == "!" and self._shell_mode < 2:
+            self._set_shell_mode(self._shell_mode + 1)
+            return True
+        if key == "backspace" and self._shell_mode:
+            self._set_shell_mode(self._shell_mode - 1)
+            return True
+        return False
+
+    def _set_shell_mode(self, mode: int) -> None:
+        self._shell_mode = mode
+        if self._prefix is not None:
+            self._prefix.update("!" * mode or "$")
+        self._sync_shell_command_style()
 
     def refresh_theme(self) -> None:
         textarea = self.query_one("#input-textarea", TextArea)
@@ -269,10 +304,10 @@ class InputBox(Vertical):
 
     def clear(self, *, reset_pastes: bool = True) -> None:
         self.query_one("#input-textarea", TextArea).clear()
+        self._set_shell_mode(0)
         self._selected_skill_commands.clear()
         self.border_title = ""
         self.border_subtitle = ""
-        self._sync_shell_command_style()
         if reset_pastes:
             self._reset_pastes()
 
@@ -453,10 +488,20 @@ class InputBox(Vertical):
         return prefix_len + max(0, min(col, len(lines[clamped_row])))
 
     def _sync_shell_command_style(self) -> None:
-        if self.text.strip().startswith("!"):
+        shell_mode = self._shell_mode
+        if not shell_mode:
+            stripped = self.text.strip()
+            shell_mode = 2 if stripped.startswith("!!") else int(stripped.startswith("!"))
+
+        if shell_mode:
             self.add_class(_SHELL_COMMAND_CLASS)
         else:
             self.remove_class(_SHELL_COMMAND_CLASS)
+
+        if shell_mode == 2:
+            self.add_class(_SHELL_COMMAND_LLM_CLASS)
+        else:
+            self.remove_class(_SHELL_COMMAND_LLM_CLASS)
 
     def _try_autocomplete(self) -> None:
         textarea = self.query_one("#input-textarea", TextArea)
@@ -510,10 +555,11 @@ class InputBox(Vertical):
         self._do_submit(steer=True)
 
     def _do_submit(self, steer: bool = False) -> None:
-        raw_text = self.text.strip()
-        if not raw_text:
+        input_text = self.text.strip()
+        if not input_text:
             return
-        images = self._submission_images(raw_text)
+        raw_text = "!" * self._shell_mode + input_text
+        images = self._submission_images(input_text)
         query_text = self._expand_paste_markers(raw_text)
         selected_skill_name, selected_skill_query = self._extract_selected_skill_submission(
             query_text

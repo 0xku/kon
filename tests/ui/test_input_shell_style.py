@@ -69,3 +69,24 @@ def test_clear_removes_shell_command_style() -> None:
     input_box.clear()
 
     assert "-shell-command" not in input_box.added_classes
+
+
+def test_empty_editor_bangs_cycle_shell_modes() -> None:
+    input_box = _TestableInputBox()
+
+    assert input_box._handle_empty_key("!")
+    assert input_box._shell_mode == 1
+    assert "-shell-command" in input_box.added_classes
+    assert "-shell-command-llm" not in input_box.added_classes
+
+    assert input_box._handle_empty_key("!")
+    assert input_box._shell_mode == 2
+    assert "-shell-command-llm" in input_box.added_classes
+
+    assert input_box._handle_empty_key("backspace")
+    assert input_box._shell_mode == 1
+    assert "-shell-command-llm" not in input_box.added_classes
+
+    assert input_box._handle_empty_key("backspace")
+    assert input_box._shell_mode == 0
+    assert "-shell-command" not in input_box.added_classes
