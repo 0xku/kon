@@ -104,7 +104,7 @@ class Kon(TextArea):
 
     def get_line(self, line_index: int):
         line = super().get_line(line_index)
-        image_style = Style(color=config.ui.colors.accent, bold=True)
+        image_style = Style(color=config.ui.colors.bg, bgcolor=config.ui.colors.notice, bold=True)
         for match in _IMAGE_MARKER_RE.finditer(line.plain):
             line.stylize(image_style, match.start(), match.end())
         return line
