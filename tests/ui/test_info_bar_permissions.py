@@ -25,7 +25,7 @@ def test_info_bar_shows_auto_permission_mode_before_file_changes():
         reset_config()
 
     assert rendered.plain == "✓ auto • 1 file +2 -1"
-    assert rendered.spans[0].style == "#d3869b"
+    assert rendered.spans[0].style == "#fb4934"
 
 
 def test_info_bar_shows_prompt_permission_mode_without_file_changes():

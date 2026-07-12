@@ -249,7 +249,7 @@ class InfoBar(Vertical):
     def _format_permission_mode(self) -> Text:
         result = Text()
         if self._permission_mode == "auto":
-            result.append("✓ auto", style=config.ui.colors.badge.label)
+            result.append("✓ auto", style=config.ui.colors.diff_removed)
         else:
             result.append("⏹ prompt", style=config.ui.colors.notice)
         return result
