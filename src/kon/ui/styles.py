@@ -64,10 +64,6 @@ Screen {{
     margin-top: 1;
 }}
 
-.content-block.-compact {{
-    margin-top: 0;
-}}
-
 /* Ensure text wraps in all blocks */
 .thinking-block Label,
 .content-block Label,

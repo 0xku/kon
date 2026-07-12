@@ -90,43 +90,6 @@ async def test_start_tool_uses_expanded_state_before_mount():
 
 
 @pytest.mark.asyncio
-async def test_content_after_header_only_tool_is_compact():
-    async with ToolExpansionTestApp().run_test() as pilot:
-        chat = pilot.app.query_one("#chat-log", ChatLog)
-        chat.start_tool("web_search", "tool-1", "query")
-        await pilot.pause()
-
-        content = chat.start_content()
-
-        assert content.has_class("-compact")
-
-
-@pytest.mark.asyncio
-async def test_restored_content_after_header_only_tool_is_compact():
-    async with ToolExpansionTestApp().run_test() as pilot:
-        chat = pilot.app.query_one("#chat-log", ChatLog)
-        chat.start_tool("web_search", "tool-1", "query")
-        await pilot.pause()
-
-        content = chat.add_content("response")
-
-        assert content.has_class("-compact")
-
-
-@pytest.mark.asyncio
-async def test_content_after_tool_with_details_keeps_spacing():
-    async with ToolExpansionTestApp().run_test() as pilot:
-        chat = pilot.app.query_one("#chat-log", ChatLog)
-        chat.start_tool("web_search", "tool-1", "query")
-        await pilot.pause()
-        chat.set_tool_result("tool-1", None, "result details", True)
-
-        content = chat.start_content()
-
-        assert not content.has_class("-compact")
-
-
-@pytest.mark.asyncio
 async def test_diff_tool_output_is_clipped_instead_of_wrapped():
     async with ToolExpansionTestApp().run_test() as pilot:
         chat = pilot.app.query_one("#chat-log", ChatLog)
