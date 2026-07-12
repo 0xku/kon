@@ -60,6 +60,7 @@ def _get_textarea_theme() -> TextAreaTheme:
         name=_TEXTAREA_THEME,
         base_style=Style(color=colors.fg),
         cursor_style=Style(color=colors.bg, bgcolor=colors.fg),
+        selection_style=Style(color=colors.bg, bgcolor=colors.fg),
     )
 
 
