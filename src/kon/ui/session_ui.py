@@ -49,11 +49,18 @@ class SessionUIMixin:
             return content
 
         parts: list[str] = []
+        image_number = 0
         for part in content:
             if isinstance(part, TextContent):
                 parts.append(part.text)
             elif isinstance(part, ImageContent):
-                parts.append("[image]")
+                image_number += 1
+                marker = (
+                    f"[Image #{image_number} {part.display_name}]"
+                    if part.display_name
+                    else "[image]"
+                )
+                parts.append(marker)
 
         return "".join(parts).strip() or "(no content)"
 

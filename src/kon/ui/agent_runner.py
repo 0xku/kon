@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from kon import config
 
-from ..core.types import StopReason, ToolResultMessage
+from ..core.types import ImageContent, StopReason, ToolResultMessage
 from ..events import (
     AgentEndEvent,
     AgentStartEvent,
@@ -39,6 +39,7 @@ from ..runtime import ConversationRuntime
 from ..tools import get_tool
 from ..tools.bash import BashParams, BashTool
 from .chat import ChatLog
+from .queue_ui import QueuedPrompt, _unpack_queue_item
 from .widgets import InfoBar, StatusLine
 
 _NOTIFY_EVENTS = (AgentEndEvent, ToolApprovalEvent)
@@ -57,8 +58,8 @@ class AgentRunnerMixin:
     _approval_selection: ApprovalResponse
     _pending_session_switch_id: str | None
     _shell_tool_counter: int
-    _pending_queue: deque[tuple[str, str]]
-    _steer_queue: deque[tuple[str, str]]
+    _pending_queue: deque[QueuedPrompt]
+    _steer_queue: deque[QueuedPrompt]
     _runtime: ConversationRuntime
 
     if TYPE_CHECKING:
@@ -92,7 +93,7 @@ class AgentRunnerMixin:
             return "permission"
         return None
 
-    async def _run_agent(self, prompt: str) -> None:
+    async def _run_agent(self, prompt: str, images: list[ImageContent] | None = None) -> None:
         chat = self.query_one("#chat-log", ChatLog)
         status = self.query_one("#status-line", StatusLine)
         info_bar = self.query_one("#info-bar", InfoBar)
@@ -103,6 +104,7 @@ class AgentRunnerMixin:
             self._is_running = False
             return
         current_prompt = prompt
+        current_images = images
 
         while True:
             was_interrupted = False
@@ -118,7 +120,10 @@ class AgentRunnerMixin:
 
             try:
                 async for event in agent.run(
-                    current_prompt, cancel_event=self._cancel_event, steer_event=self._steer_event
+                    current_prompt,
+                    images=current_images,
+                    cancel_event=self._cancel_event,
+                    steer_event=self._steer_event,
                 ):
                     notification_event = self._notification_event_type(event)
                     if notification_event:
@@ -149,9 +154,10 @@ class AgentRunnerMixin:
             queued = self._dequeue_next_prompt()
             if queued is None:
                 break
-            next_display, next_query = queued
+            next_display, next_query, next_images = queued
             chat.add_user_message(next_display)
             current_prompt = next_query
+            current_images = next_images
 
         self._is_running = False
 
@@ -162,7 +168,7 @@ class AgentRunnerMixin:
 
         self._show_pending_update_notice_if_idle()
 
-    def _dequeue_next_prompt(self) -> tuple[str, str] | None:
+    def _dequeue_next_prompt(self) -> tuple[str, str, list[ImageContent]] | None:
         # Steer messages take priority — drain steer queue first
         if self._steer_queue:
             queued = self._steer_queue.popleft()
@@ -171,7 +177,7 @@ class AgentRunnerMixin:
         else:
             return None
         self._update_queue_display()
-        return queued
+        return _unpack_queue_item(queued)
 
     async def _render_agent_event(
         self, event: object, chat: ChatLog, status: StatusLine, info_bar: InfoBar

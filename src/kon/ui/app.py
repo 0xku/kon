@@ -45,7 +45,7 @@ from .commands import CommandsMixin
 from .completion_ui import CompletionUIMixin
 from .floating_list import FloatingList
 from .input import InputBox
-from .queue_ui import QueueUIMixin
+from .queue_ui import QueuedPrompt, QueueUIMixin
 from .selection_mode import SelectionMode
 from .session_ui import SessionUIMixin
 from .startup import StartupMixin
@@ -157,10 +157,10 @@ class Kon(
         self._settings_selected_value: str | None = None
         self._shell_tool_counter = 0
 
-        self._pending_queue: deque[tuple[str, str]] = deque(maxlen=QueueDisplay.MAX_QUEUE)
-        self._steer_queue: deque[tuple[str, str]] = deque(maxlen=QueueDisplay.MAX_QUEUE)
+        self._pending_queue: deque[QueuedPrompt] = deque(maxlen=QueueDisplay.MAX_QUEUE)
+        self._steer_queue: deque[QueuedPrompt] = deque(maxlen=QueueDisplay.MAX_QUEUE)
         self._queue_selection: tuple[bool, int] | None = None
-        self._queue_editing: tuple[bool, int, tuple[str, str]] | None = None
+        self._queue_editing: tuple[bool, int, QueuedPrompt] | None = None
         self._steer_event: asyncio.Event | None = None
         self._exit_hints: list[str] = []
         self._session_start_time: float | None = None
@@ -640,14 +640,14 @@ class Kon(
                 if len(self._steer_queue) >= QueueDisplay.MAX_QUEUE:
                     self.notify("Steer queue full (max 5)", severity="warning", timeout=2)
                     return
-                self._steer_queue.append((display_text, query_text))
+                self._steer_queue.append((display_text, query_text, event.images))
                 if self._steer_event:
                     self._steer_event.set()
             else:
                 if len(self._pending_queue) >= QueueDisplay.MAX_QUEUE:
                     self.notify("Queue full (max 5)", severity="warning", timeout=2)
                     return
-                self._pending_queue.append((display_text, query_text))
+                self._pending_queue.append((display_text, query_text, event.images))
             self._update_queue_display()
             return
 
@@ -655,4 +655,4 @@ class Kon(
         chat.add_user_message(display_text, highlighted_skill=highlighted_skill)
 
         self._is_running = True
-        self.run_worker(self._run_agent(query_text), exclusive=True)
+        self.run_worker(self._run_agent(query_text, event.images), exclusive=True)

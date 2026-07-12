@@ -284,6 +284,23 @@ async def test_agent_with_images(tools, in_memory_session):
 
 
 @pytest.mark.asyncio
+async def test_agent_preserves_pasted_image_position(tools, in_memory_session):
+    from kon.core.types import ImageContent, TextContent
+
+    provider = MockProvider(scenario="simple_text")
+    image = ImageContent(data="base64data", mime_type="image/png", display_name="shot.png")
+    agent = Agent(provider, tools, in_memory_session)
+
+    async for _ in agent.run("before [Image #1 shot.png] after", images=[image]):
+        pass
+
+    user_msg = in_memory_session.messages[0]
+    assert isinstance(user_msg, UserMessage)
+    assert isinstance(user_msg.content, list)
+    assert user_msg.content == [TextContent(text="before "), image, TextContent(text=" after")]
+
+
+@pytest.mark.asyncio
 async def test_agent_custom_cwd(tools):
     provider = MockProvider(scenario="simple_text")
     session = Session.in_memory(cwd="/custom/path")

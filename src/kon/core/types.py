@@ -103,6 +103,7 @@ class ImageContent(BaseModel):
     type: Literal["image"] = "image"
     data: str  # base64 encoded
     mime_type: str
+    display_name: str | None = None
 
 
 class ToolCall(BaseModel):

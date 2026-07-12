@@ -5,36 +5,49 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING, Any
 
+from kon.core.types import ImageContent
+
 from .input import InputBox
 from .widgets import QueueDisplay
+
+QueuedPrompt = tuple[str, str] | tuple[str, str, list[ImageContent]]
+
+
+def _unpack_queue_item(item: QueuedPrompt) -> tuple[str, str, list[ImageContent]]:
+    if len(item) == 2:
+        display, query = item
+        return display, query, []
+    return item
 
 
 class QueueUIMixin:
     """Manages the two message queues: steer (injected mid-run) and pending (run next)."""
 
-    _pending_queue: deque[tuple[str, str]]
-    _steer_queue: deque[tuple[str, str]]
+    _pending_queue: deque[QueuedPrompt]
+    _steer_queue: deque[QueuedPrompt]
     _queue_selection: tuple[bool, int] | None
-    _queue_editing: tuple[bool, int, tuple[str, str]] | None
+    _queue_editing: tuple[bool, int, QueuedPrompt] | None
 
     if TYPE_CHECKING:
         query_one: Any
 
-    def _queue_items(self) -> list[tuple[bool, int, str, str]]:
+    def _queue_items(self) -> list[tuple[bool, int, str, str, list[ImageContent]]]:
         steer = [
-            (True, index, display, query)
-            for index, (display, query) in enumerate(self._steer_queue)
+            (True, index, display, query, images)
+            for index, item in enumerate(self._steer_queue)
+            for display, query, images in [_unpack_queue_item(item)]
         ]
         pending = [
-            (False, index, display, query)
-            for index, (display, query) in enumerate(self._pending_queue)
+            (False, index, display, query, images)
+            for index, item in enumerate(self._pending_queue)
+            for display, query, images in [_unpack_queue_item(item)]
         ]
         return steer + pending
 
     def _selected_queue_flat_index(self) -> int | None:
         if self._queue_selection is None:
             return None
-        for flat_index, (is_steer, index, _, _) in enumerate(self._queue_items()):
+        for flat_index, (is_steer, index, _, _, _) in enumerate(self._queue_items()):
             if self._queue_selection == (is_steer, index):
                 return flat_index
         return None
@@ -44,14 +57,14 @@ class QueueUIMixin:
         if flat_index is None or flat_index < 0 or flat_index >= len(items):
             self._queue_selection = None
         else:
-            is_steer, index, _, _ = items[flat_index]
+            is_steer, index, _, _, _ = items[flat_index]
             self._queue_selection = (is_steer, index)
         self._update_queue_display()
 
     def _update_queue_display(self) -> None:
         queue_display = self.query_one("#queue-display", QueueDisplay)
-        steer_items = [(display, True) for display, _ in self._steer_queue]
-        normal_items = [(display, False) for display, _ in self._pending_queue]
+        steer_items = [(_unpack_queue_item(item)[0], True) for item in self._steer_queue]
+        normal_items = [(_unpack_queue_item(item)[0], False) for item in self._pending_queue]
         selected = self._selected_queue_flat_index()
         editing = None
 
@@ -116,12 +129,19 @@ class QueueUIMixin:
         self._update_queue_display()
         return True
 
-    def finish_queue_edit(self, display_text: str, query_text: str) -> bool:
+    def finish_queue_edit(
+        self, display_text: str, query_text: str, images: list[ImageContent] | None = None
+    ) -> bool:
         if self._queue_editing is None:
             return False
-        is_steer, index, _ = self._queue_editing
+        is_steer, index, original = self._queue_editing
         queue = self._steer_queue if is_steer else self._pending_queue
-        queue.insert(min(index, len(queue)), (display_text, query_text))
+        original_images = _unpack_queue_item(original)[2]
+        item_images = images or original_images
+        item: QueuedPrompt = (
+            (display_text, query_text, item_images) if item_images else (display_text, query_text)
+        )
+        queue.insert(min(index, len(queue)), item)
         self._queue_editing = None
         self._queue_selection = (is_steer, min(index, len(queue) - 1))
         self._update_queue_display()

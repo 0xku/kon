@@ -10,6 +10,7 @@ The loop ends on stop/error/interruption, compaction pause mode, or max turns.
 
 import asyncio
 import os
+import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime
@@ -146,7 +147,22 @@ class Agent:
         self._run_usage = Usage()
 
         if images:
-            user_content: list[TextContent | ImageContent] = [TextContent(text=query), *images]
+            if any(image.display_name for image in images):
+                user_content = []
+                image_index = 0
+                cursor = 0
+                for match in re.finditer(r"\[Image #\d+ [^\]\n]+\]", query):
+                    if match.start() > cursor:
+                        user_content.append(TextContent(text=query[cursor : match.start()]))
+                    if image_index < len(images):
+                        user_content.append(images[image_index])
+                        image_index += 1
+                    cursor = match.end()
+                if cursor < len(query):
+                    user_content.append(TextContent(text=query[cursor:]))
+                user_content.extend(images[image_index:])
+            else:
+                user_content = [TextContent(text=query), *images]
             user_message = UserMessage(content=user_content)
         else:
             user_message = UserMessage(content=query)

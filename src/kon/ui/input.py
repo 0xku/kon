@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Callable
+from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, ClassVar
 
@@ -17,6 +18,8 @@ from textual.widgets import Label, TextArea
 from textual.widgets.text_area import TextAreaTheme
 
 from kon import config
+from kon.core.types import ImageContent
+from kon.tools._read_image import is_image_file, read_and_process_image
 
 from .autocomplete import (
     DEFAULT_COMMANDS,
@@ -27,6 +30,7 @@ from .autocomplete import (
     SlashCommandProvider,
 )
 from .floating_list import ListItem
+from .image_clipboard import save_clipboard_image
 from .path_complete import PathComplete
 from .prompt_history import PromptHistory
 
@@ -42,6 +46,8 @@ ANSI_SEQUENCES_KEYS["\x1b[13;2u"] = (SimpleNamespace(value="shift+enter"),)  # t
 _PASTE_LINE_THRESHOLD = 5
 _PASTE_CHAR_THRESHOLD = 500
 _PASTE_MARKER_RE = re.compile(r"\[paste #(\d+)(?: (\+\d+ lines|\d+ chars))?\]")
+_IMAGE_MARKER_RE = re.compile(r"\[Image #(\d+) [^\]\n]+\]")
+_IMAGE_NAME_LENGTH = 12
 _SKILL_TRIGGER_MARKER = "\u2063"
 _SHELL_COMMAND_CLASS = "-shell-command"
 _TEXTAREA_THEME = "kon-input"
@@ -85,6 +91,27 @@ class Kon(TextArea):
         transformed = self._on_paste_transform(event.text)
         await super()._on_paste(events.Paste(transformed))
 
+    def get_line(self, line_index: int):
+        line = super().get_line(line_index)
+        image_style = Style(color=config.ui.colors.accent, bold=True)
+        for match in _IMAGE_MARKER_RE.finditer(line.plain):
+            line.stylize(image_style, match.start(), match.end())
+        return line
+
+    def action_delete_left(self) -> None:
+        if self.read_only or not self.selection.is_empty:
+            super().action_delete_left()
+            return
+
+        row, column = self.cursor_location
+        line = self.document.get_line(row)
+        for match in _IMAGE_MARKER_RE.finditer(line):
+            if match.start() < column <= match.end():
+                self.replace("", (row, match.start()), (row, match.end()))
+                self.move_cursor((row, match.start()))
+                return
+        super().action_delete_left()
+
     def _notify_scroll_info(self) -> None:
         total_lines = self.document.line_count
         visible_lines = self.scrollable_content_region.height
@@ -118,6 +145,7 @@ class InputBox(Vertical):
     """
 
     BINDINGS: ClassVar[list] = [
+        Binding("ctrl+v", "paste_clipboard", "Paste", priority=True),
         Binding("enter", "submit", "Send", priority=True),
         Binding("ctrl+j,shift+enter", "newline", "New line", priority=True),
         Binding("alt+enter", "steer_submit", "Steer", priority=True),
@@ -194,9 +222,12 @@ class InputBox(Vertical):
         self._tab_start_col: int = 0
         self._tab_base_fragment: str = ""
 
-        # Large paste compaction
+        # Paste compaction and image attachments
         self._pastes: dict[int, str] = {}
         self._paste_counter: int = 0
+        self._images: dict[int, ImageContent] = {}
+        self._image_temp_paths: dict[int, Path] = {}
+        self._image_counter: int = 0
 
         # Skill command triggers selected from slash autocomplete
         self._selected_skill_commands: list[str] = []
@@ -282,6 +313,14 @@ class InputBox(Vertical):
     def _transform_paste(self, pasted_text: str) -> str:
         normalized = pasted_text.replace("\r\n", "\n").replace("\r", "\n")
         filtered = "".join(char for char in normalized if char == "\n" or ord(char) >= 32)
+
+        image_path = self._pasted_image_path(filtered)
+        if image_path is not None:
+            try:
+                return self._attach_image(image_path)
+            except (OSError, ValueError):
+                pass
+
         line_count = len(filtered.split("\n"))
         char_count = len(filtered)
 
@@ -302,9 +341,68 @@ class InputBox(Vertical):
 
         return _PASTE_MARKER_RE.sub(replace_match, text)
 
+    def _pasted_image_path(self, text: str) -> Path | None:
+        candidate = text.strip()
+        if candidate.startswith("file://"):
+            candidate = candidate[7:]
+        path = Path(os.path.expanduser(candidate))
+        if not path.is_absolute():
+            path = Path(self._cwd) / path
+        if not is_image_file(str(path)):
+            return None
+        try:
+            return path if path.is_file() else None
+        except OSError:
+            return None
+
+    def _attach_image(self, path: Path, *, temporary: bool = False) -> str:
+        data, mime_type, _ = read_and_process_image(str(path))
+        self._image_counter += 1
+        image_id = self._image_counter
+        name = path.name
+        if len(name) > _IMAGE_NAME_LENGTH:
+            name = name[: _IMAGE_NAME_LENGTH - 1] + "…"
+        self._images[image_id] = ImageContent(data=data, mime_type=mime_type, display_name=name)
+        if temporary:
+            self._image_temp_paths[image_id] = path
+        return f"[Image #{image_id} {name}]"
+
+    def _submission_images(self, text: str) -> list[ImageContent]:
+        images: list[ImageContent] = []
+        for match in _IMAGE_MARKER_RE.finditer(text):
+            image = self._images.get(int(match.group(1)))
+            if image is not None:
+                images.append(image)
+        return images
+
+    def _strip_image_markers(self, text: str) -> str:
+        return re.sub(r"[ \t]*\[Image #\d+ [^\]\n]+\][ \t]*", " ", text).strip()
+
     def _reset_pastes(self) -> None:
         self._pastes.clear()
         self._paste_counter = 0
+        for path in self._image_temp_paths.values():
+            path.unlink(missing_ok=True)
+        self._images.clear()
+        self._image_temp_paths.clear()
+        self._image_counter = 0
+
+    def action_paste_clipboard(self) -> None:
+        try:
+            clipboard_image = save_clipboard_image()
+        except (OSError, NotImplementedError, ValueError):
+            clipboard_image = None
+        if clipboard_image is not None:
+            path, temporary = clipboard_image
+            try:
+                self.insert(self._attach_image(path, temporary=temporary))
+                return
+            except (OSError, ValueError):
+                if temporary:
+                    path.unlink(missing_ok=True)
+
+        textarea = self.query_one("#input-textarea", TextArea)
+        textarea.action_paste()
 
     def _strip_skill_markers(self, text: str) -> str:
         return text.replace(_SKILL_TRIGGER_MARKER, "")
@@ -415,6 +513,7 @@ class InputBox(Vertical):
         raw_text = self.text.strip()
         if not raw_text:
             return
+        images = self._submission_images(raw_text)
         query_text = self._expand_paste_markers(raw_text)
         selected_skill_name, selected_skill_query = self._extract_selected_skill_submission(
             query_text
@@ -423,8 +522,8 @@ class InputBox(Vertical):
         query_text = self._strip_skill_markers(query_text)
         self._add_to_history(query_text)
         try:
-            if getattr(self.app, "finish_queue_edit", lambda _display, _query: False)(
-                display_text, query_text
+            if getattr(self.app, "finish_queue_edit", lambda _display, _query, _images: False)(
+                display_text, query_text, images
             ):
                 self.clear(reset_pastes=True)
                 return
@@ -436,6 +535,7 @@ class InputBox(Vertical):
                 query_text=query_text,
                 selected_skill_name=selected_skill_name,
                 selected_skill_query=selected_skill_query,
+                images=images,
                 steer=steer,
             )
         )
@@ -713,6 +813,7 @@ class InputBox(Vertical):
             query_text: str | None = None,
             selected_skill_name: str | None = None,
             selected_skill_query: str | None = None,
+            images: list[ImageContent] | None = None,
             steer: bool = False,
         ) -> None:
             super().__init__()
@@ -720,6 +821,7 @@ class InputBox(Vertical):
             self.query_text = query_text if query_text is not None else text
             self.selected_skill_name = selected_skill_name
             self.selected_skill_query = selected_skill_query
+            self.images = images or []
             self.steer = steer
 
     class CompletionUpdate(Message):
