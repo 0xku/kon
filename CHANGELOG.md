@@ -4,10 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- No changes yet.
+
+## 0.4.2 - 2026-07-20
+
 ### Added
 
 - Added xAI OAuth login for SuperGrok and X Premium subscriptions, with Grok support through the Responses API.
-- Added `ui.hidden_models` config to hide models from the `/model` picker. Use a provider name to hide all its models, or `provider:model` to hide a specific model.
+- Added GPT-5.6 Codex, xAI Grok 4.5, and GLM-5.2 model support.
+- Added image attachments from the clipboard and clearer attachment highlighting.
+- Added shell prompt modes and support for opening URLs from assistant responses.
+- Added `ui.hidden_models` config to filter providers or individual models from the `/model` picker.
+
+### Changed
+
+- Synced the UI theme palette and subtle greys with Relay.
+- Updated config path references from `~/.kon` to `~/.config/kon`.
+- Made PyPI publishing skip files that already exist.
+
+### Fixed
+
+- Fixed editor selection visibility and color stability across thinking levels.
+- Fixed auto permission mode and tool output styling.
+- Fixed compaction summary output budgeting and spacing after summary-only tool calls.
+- Fixed a Windows skill test assertion - @skarasov.
 
 ## 0.4.1 - 2026-06-13
 
