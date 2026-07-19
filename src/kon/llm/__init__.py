@@ -10,14 +10,20 @@ from .models import (
 from .oauth import clear_credentials as clear_copilot_credentials
 from .oauth import (
     clear_openai_credentials,
+    clear_xai_credentials,
     get_valid_openai_credentials,
+    get_valid_xai_credentials,
     is_copilot_logged_in,
     is_openai_logged_in,
+    is_xai_logged_in,
     load_openai_credentials,
+    load_xai_credentials,
     openai_login,
+    xai_login,
 )
 from .oauth import get_valid_openai_token as get_openai_token
 from .oauth import get_valid_token as get_copilot_token
+from .oauth import get_valid_xai_token as get_xai_token
 from .oauth import load_credentials as load_copilot_credentials
 from .oauth import login as copilot_login
 from .providers import PROVIDER_API_BY_NAME, get_provider_class, resolve_provider_api_type
@@ -32,6 +38,7 @@ __all__ = [
     "ProviderConfig",
     "clear_copilot_credentials",
     "clear_openai_credentials",
+    "clear_xai_credentials",
     "copilot_login",
     "get_all_models",
     "get_copilot_token",
@@ -41,10 +48,15 @@ __all__ = [
     "get_openai_token",
     "get_provider_class",
     "get_valid_openai_credentials",
+    "get_valid_xai_credentials",
+    "get_xai_token",
     "is_copilot_logged_in",
     "is_openai_logged_in",
+    "is_xai_logged_in",
     "load_copilot_credentials",
     "load_openai_credentials",
+    "load_xai_credentials",
     "openai_login",
     "resolve_provider_api_type",
+    "xai_login",
 ]

@@ -166,7 +166,11 @@ class OpenAIResponsesProvider(BaseProvider):
 
                 elif event_type == "response.output_item.done":
                     item = event.item
-                    if item.type == "function_call":
+                    if item.type == "reasoning":
+                        yield ThinkPart(
+                            think="", signature=json.dumps(item.model_dump(exclude_none=True))
+                        )
+                    elif item.type == "function_call":
                         item_id = item.id or ""
                         call_id = f"{item.call_id}|{item_id}"
                         call_key = current_tool_call_key

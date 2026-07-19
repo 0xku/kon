@@ -42,7 +42,7 @@ def test_get_model_resolves_grok_4_5():
 
     assert model is not None
     assert model.provider == "xai"
-    assert model.api == ApiType.OPENAI_COMPLETIONS
+    assert model.api == ApiType.XAI_RESPONSES
     assert model.base_url == "https://api.x.ai/v1"
     assert model.max_tokens == 500000
     assert model.context_window == 500000

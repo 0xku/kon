@@ -92,8 +92,6 @@ volume = 0.5
 # default_model = "deepseek-v4-flash"
 #
 # Example: xAI Grok provider
-# export XAI_API_KEY="xai-your-api-key"
-#
-# Then set in [llm]:
+# Sign in with SuperGrok or X Premium via /login, then set in [llm]:
 # default_provider = "xai"
 # default_model = "grok-4.5"

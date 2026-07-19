@@ -21,10 +21,6 @@ def test_supports_developer_role_for_zhipu() -> None:
     assert supports_developer_role("zhipu", "https://api.z.ai/api/coding/paas/v4") is False
 
 
-def test_supports_developer_role_for_xai() -> None:
-    assert supports_developer_role("xai", "https://api.x.ai/v1") is False
-
-
 def test_detect_compat_disables_developer_role_for_local_api() -> None:
     compat = _detect_compat("openai", "http://127.0.0.1:1234/v1")
 
@@ -40,14 +36,6 @@ def test_detect_compat_uses_llama_gemma_for_local_gemma_models() -> None:
     assert compat.supports_developer_role is False
     assert compat.supports_reasoning_effort is False
     assert compat.thinking_format == "llama_gemma"
-
-
-def test_detect_compat_disables_unsupported_xai_openai_params() -> None:
-    compat = _detect_compat("xai", "https://api.x.ai/v1", "grok-4.5")
-
-    assert compat.supports_store is False
-    assert compat.supports_developer_role is False
-    assert compat.supports_reasoning_effort is False
 
 
 def test_openai_completions_prefixes_think_token_for_local_gemma() -> None:
@@ -297,11 +285,6 @@ class TestEnvVarsForProvider:
         env_vars = OpenAICompletionsProvider._env_vars_for_provider(config)
         assert env_vars == ("OPENAI_API_KEY",)
 
-    def test_xai_provider_uses_xai_then_openai_key(self) -> None:
-        config = ProviderConfig(provider="xai", base_url="https://api.x.ai/v1")
-        env_vars = OpenAICompletionsProvider._env_vars_for_provider(config)
-        assert env_vars == ("XAI_API_KEY", "OPENAI_API_KEY")
-
     def test_deepseek_base_url_without_provider_uses_deepseek_then_openai_key(self) -> None:
         config = ProviderConfig(base_url="https://api.deepseek.com/v1")
         env_vars = OpenAICompletionsProvider._env_vars_for_provider(config)
@@ -311,8 +294,3 @@ class TestEnvVarsForProvider:
         config = ProviderConfig(base_url="https://api.z.ai/api/coding/paas/v4")
         env_vars = OpenAICompletionsProvider._env_vars_for_provider(config)
         assert env_vars == ("ZAI_API_KEY", "OPENAI_API_KEY")
-
-    def test_xai_base_url_without_provider_uses_xai_then_openai_key(self) -> None:
-        config = ProviderConfig(base_url="https://api.x.ai/v1")
-        env_vars = OpenAICompletionsProvider._env_vars_for_provider(config)
-        assert env_vars == ("XAI_API_KEY", "OPENAI_API_KEY")

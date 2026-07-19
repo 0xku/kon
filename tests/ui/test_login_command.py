@@ -168,8 +168,9 @@ def test_select_login_provider_schedules_login_workers():
 
     fake._select_login_provider("openai")
     fake._select_login_provider("github-copilot")
+    fake._select_login_provider("xai")
 
-    assert len(fake.workers) == 2
+    assert len(fake.workers) == 3
     assert all(exclusive is False for _, exclusive in fake.workers)
     assert fake.chat.infos == []
 
@@ -178,6 +179,7 @@ def test_login_picker_marks_saved_credentials_without_logged_in_checkmark(monkey
     fake = FakeCommands()
     monkeypatch.setattr(commands, "has_saved_openai_credentials", lambda: True)
     monkeypatch.setattr(commands, "has_saved_copilot_credentials", lambda: False)
+    monkeypatch.setattr(commands, "has_saved_xai_credentials", lambda: False)
 
     fake._handle_login_command("")
 
@@ -186,4 +188,5 @@ def test_login_picker_marks_saved_credentials_without_logged_in_checkmark(monkey
     assert rows == [
         ("github-copilot", "GitHub Copilot", ""),
         ("openai", "OpenAI (ChatGPT/Codex)", "saved credentials"),
+        ("xai", "xAI (Grok/X subscription)", ""),
     ]

@@ -78,7 +78,6 @@ def _detect_compat(provider: str, base_url: str, model: str = "") -> OpenAICompl
         or "api.z.ai" in normalized_base_url
     )
     is_deepseek = normalized_provider == "deepseek" or "api.deepseek.com" in normalized_base_url
-    is_xai = normalized_provider == "xai" or "api.x.ai" in normalized_base_url
 
     if is_zai:
         reasoning_effort_map: dict[str, str] = {}
@@ -94,7 +93,7 @@ def _detect_compat(provider: str, base_url: str, model: str = "") -> OpenAICompl
             reasoning_effort_map=reasoning_effort_map,
         )
 
-    if is_deepseek or is_xai:
+    if is_deepseek:
         return OpenAICompletionsCompat(
             supports_store=False, supports_developer_role=False, supports_reasoning_effort=False
         )
@@ -133,8 +132,7 @@ class OpenAICompletionsProvider(BaseProvider):
         if not api_key:
             raise ValueError(
                 f"No API key found for {self.name}. "
-                "Set OPENAI_API_KEY, DEEPSEEK_API_KEY, ZAI_API_KEY, or XAI_API_KEY "
-                "environment variable, "
+                "Set OPENAI_API_KEY, DEEPSEEK_API_KEY, or ZAI_API_KEY environment variable, "
                 'or configure llm.auth.openai_compat = "auto"/"none" for local endpoints.'
             )
         self._client = AsyncOpenAI(
@@ -156,8 +154,6 @@ class OpenAICompletionsProvider(BaseProvider):
             return ("DEEPSEEK_API_KEY", "OPENAI_API_KEY")
         if provider in {"zai", "zhipu"} or "api.z.ai" in base_url:
             return ("ZAI_API_KEY", "OPENAI_API_KEY")
-        if provider == "xai" or "api.x.ai" in base_url:
-            return ("XAI_API_KEY", "OPENAI_API_KEY")
 
         return ("OPENAI_API_KEY",)
 

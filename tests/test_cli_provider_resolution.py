@@ -6,7 +6,7 @@ from kon.runtime import default_base_url_for_api
 def test_resolve_provider_api_type_known_provider():
     assert resolve_provider_api_type("github-copilot") == ApiType.GITHUB_COPILOT
     assert resolve_provider_api_type("openai") == ApiType.OPENAI_COMPLETIONS
-    assert resolve_provider_api_type("xai") == ApiType.OPENAI_COMPLETIONS
+    assert resolve_provider_api_type("xai") == ApiType.XAI_RESPONSES
 
 
 def test_resolve_provider_api_type_unknown_provider():

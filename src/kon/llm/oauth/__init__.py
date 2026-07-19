@@ -19,23 +19,41 @@ from .openai import (
     load_openai_credentials,
 )
 from .openai import login as openai_login
+from .xai import (
+    XaiCredentials,
+    clear_xai_credentials,
+    get_valid_xai_credentials,
+    get_valid_xai_token,
+    get_xai_auth_path,
+    is_xai_logged_in,
+    load_xai_credentials,
+    xai_login,
+)
 
 __all__ = [
     "COPILOT_HEADERS",
     "CopilotCredentials",
     "OpenAICredentials",
+    "XaiCredentials",
     "clear_credentials",
     "clear_openai_credentials",
+    "clear_xai_credentials",
     "get_base_url_from_token",
     "get_copilot_auth_path",
     "get_openai_auth_path",
     "get_valid_openai_credentials",
     "get_valid_openai_token",
     "get_valid_token",
+    "get_valid_xai_credentials",
+    "get_valid_xai_token",
+    "get_xai_auth_path",
     "is_copilot_logged_in",
     "is_openai_logged_in",
+    "is_xai_logged_in",
     "load_credentials",
     "load_openai_credentials",
+    "load_xai_credentials",
     "login",
     "openai_login",
+    "xai_login",
 ]

@@ -5,7 +5,7 @@ PROVIDER_API_BY_NAME: dict[str, ApiType] = {
     "openai": ApiType.OPENAI_COMPLETIONS,
     "zhipu": ApiType.OPENAI_COMPLETIONS,
     "deepseek": ApiType.OPENAI_COMPLETIONS,
-    "xai": ApiType.OPENAI_COMPLETIONS,
+    "xai": ApiType.XAI_RESPONSES,
     "github-copilot": ApiType.GITHUB_COPILOT,
     "openai-responses": ApiType.OPENAI_RESPONSES,
     "openai-codex": ApiType.OPENAI_CODEX_RESPONSES,
@@ -43,6 +43,10 @@ def get_provider_class(api_type: ApiType) -> type[BaseProvider]:
             from .openai_codex_responses import OpenAICodexResponsesProvider
 
             return OpenAICodexResponsesProvider
+        case ApiType.XAI_RESPONSES:
+            from .xai_responses import XaiResponsesProvider
+
+            return XaiResponsesProvider
         case ApiType.ANTHROPIC_COPILOT:
             from .copilot_anthropic import CopilotAnthropicProvider
 

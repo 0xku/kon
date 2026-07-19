@@ -16,6 +16,7 @@ class ApiType(Enum):
     OPENAI_COMPLETIONS = "openai-completions"
     OPENAI_RESPONSES = "openai-responses"
     OPENAI_CODEX_RESPONSES = "openai-codex-responses"
+    XAI_RESPONSES = "xai-responses"
     ANTHROPIC_COPILOT = "anthropic-copilot"
     AZURE_AI_FOUNDRY = "azure-ai-foundry"
     GITHUB_COPILOT = "github-copilot"
@@ -76,11 +77,11 @@ MODELS: dict[str, Model] = {
         supports_images=False,
         supports_thinking=True,
     ),
-    # xAI models (OpenAI-compatible Chat Completions API)
+    # xAI models (Grok/X subscription OAuth via Responses API)
     "grok-4.5": Model(
         id="grok-4.5",
         provider="xai",
-        api=ApiType.OPENAI_COMPLETIONS,
+        api=ApiType.XAI_RESPONSES,
         base_url="https://api.x.ai/v1",
         max_tokens=500000,
         supports_images=True,

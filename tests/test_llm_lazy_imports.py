@@ -35,6 +35,7 @@ _PROVIDER_CASES = [
     (ApiType.GITHUB_COPILOT_RESPONSES, "CopilotResponsesProvider"),
     (ApiType.OPENAI_RESPONSES, "OpenAIResponsesProvider"),
     (ApiType.OPENAI_CODEX_RESPONSES, "OpenAICodexResponsesProvider"),
+    (ApiType.XAI_RESPONSES, "XaiResponsesProvider"),
     (ApiType.ANTHROPIC_COPILOT, "CopilotAnthropicProvider"),
     (ApiType.AZURE_AI_FOUNDRY, "AzureAIFoundryProvider"),
     (ApiType.OPENAI_COMPLETIONS, "OpenAICompletionsProvider"),

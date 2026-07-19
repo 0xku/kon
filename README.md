@@ -540,18 +540,23 @@ Kon supports both OAuth login flows and direct API-key configuration.
 
 - **GitHub Copilot OAuth**: run `/login` and choose GitHub Copilot
 - **OpenAI OAuth**: run `/login` and choose OpenAI
+- **xAI OAuth**: run `/login` and choose xAI to sign in with SuperGrok or X Premium
 - **OpenAI-compatible providers**: use `OPENAI_API_KEY` or provider-specific equivalents
   - OpenAI/default: `OPENAI_API_KEY` only
   - DeepSeek: `DEEPSEEK_API_KEY` first, then `OPENAI_API_KEY`
-  - xAI Grok: `XAI_API_KEY` first, then `OPENAI_API_KEY`
   - ZhiPu/ZAI: `ZAI_API_KEY` first, then `OPENAI_API_KEY`
 - **Azure AI Foundry**: set `AZURE_AI_FOUNDRY_API_KEY` and `AZURE_AI_FOUNDRY_BASE_URL`
 
-You can also pass credentials directly on launch:
+You can also pass API-key credentials directly on launch:
 
 ```bash
 kon --provider openai --model some-model --api-key "$OPENAI_API_KEY"
 kon --provider deepseek --model deepseek-v4-flash
+```
+
+After signing in to xAI via `/login`, launch Grok with:
+
+```bash
 kon --provider xai --model grok-4.5
 ```
 
