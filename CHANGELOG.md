@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Added xAI OAuth login for SuperGrok and X Premium subscriptions, with Grok support through the Responses API.
 - Added `ui.hidden_models` config to hide models from the `/model` picker. Use a provider name to hide all its models, or `provider:model` to hide a specific model.
 
 ## 0.4.1 - 2026-06-13
