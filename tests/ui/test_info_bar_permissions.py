@@ -37,7 +37,7 @@ def test_info_bar_shows_prompt_permission_mode_without_file_changes():
     finally:
         reset_config()
 
-    assert rendered.plain == "⏹ prompt"
+    assert rendered.plain == "■ prompt"
 
 
 def test_info_bar_updates_permission_mode_without_layout():

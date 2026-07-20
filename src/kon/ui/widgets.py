@@ -251,7 +251,7 @@ class InfoBar(Vertical):
         if self._permission_mode == "auto":
             result.append("✓ auto", style=config.ui.colors.diff_removed)
         else:
-            result.append("⏹ prompt", style=config.ui.colors.notice)
+            result.append("■ prompt", style=config.ui.colors.notice)
         return result
 
     def _format_row2_right(self) -> Text:
