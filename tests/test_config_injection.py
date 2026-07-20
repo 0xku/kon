@@ -1,8 +1,18 @@
 """Tests for injectable config functionality."""
 
+from contextvars import copy_context
+
 import pytest
 
-from kon import Config, config, get_config, reload_config, reset_config, set_config
+from kon import (
+    Config,
+    config,
+    get_config,
+    reload_config,
+    reset_config,
+    set_config,
+    set_permissions_mode,
+)
 
 
 def test_config_proxy_delegates_to_get_config():
@@ -55,6 +65,24 @@ def test_reload_config_reloads_from_file():
 
     assert reloaded.llm.default_model != "will-be-replaced"
     assert config.llm.default_model == reloaded.llm.default_model
+
+
+def test_set_permissions_mode_updates_existing_context(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    reset_config()
+
+    try:
+        get_config().permissions.mode = "prompt"
+        worker_context = copy_context()
+        worker_config = worker_context.run(get_config)
+
+        set_permissions_mode("auto")
+
+        assert worker_config.permissions.mode == "auto"
+        assert worker_context.run(get_config).permissions.mode == "auto"
+        assert config.permissions.mode == "auto"
+    finally:
+        reset_config()
 
 
 def test_config_injection_for_testing():

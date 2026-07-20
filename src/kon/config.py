@@ -644,6 +644,11 @@ def set_permissions_mode(mode: PermissionMode) -> Config:
     _set_config_version(data)
 
     _atomic_write_text(config_file, _serialize_config_toml(data))
+
+    # ContextVars are copied when Textual starts the agent worker. Mutate the
+    # shared config instance so an already-running worker sees the new mode,
+    # then reload to keep the caller's context in sync with the persisted file.
+    get_config().permissions.mode = mode
     return reload_config()
 
 
