@@ -18,7 +18,7 @@ def test_notify_plays_macos_sound(monkeypatch):
     commands: list[list[str]] = []
 
     monkeypatch.setattr(mod, "_platform", lambda: "darwin")
-    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav"))
+    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav").as_posix())
     monkeypatch.setattr(mod, "_run", commands.append)
 
     notify("completion")
@@ -31,7 +31,7 @@ def test_notify_uses_configured_macos_volume(monkeypatch):
     set_config(Config({"notifications": {"volume": 0.25}}))
 
     monkeypatch.setattr(mod, "_platform", lambda: "darwin")
-    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav"))
+    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav").as_posix())
     monkeypatch.setattr(mod, "_run", commands.append)
 
     notify("completion")
@@ -43,7 +43,7 @@ def test_notify_plays_linux_sound_with_cached_player(monkeypatch):
     commands: list[list[str]] = []
 
     monkeypatch.setattr(mod, "_platform", lambda: "linux")
-    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav"))
+    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav").as_posix())
     monkeypatch.setattr(mod, "_linux_player", lambda: "mpv")
     monkeypatch.setattr(mod, "_run", commands.append)
 
@@ -95,7 +95,9 @@ def test_notify_uses_configured_linux_player_volumes(monkeypatch):
     for player, expected_command in cases:
         commands: list[list[str]] = []
         monkeypatch.setattr(mod, "_platform", lambda: "linux")
-        monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav"))
+        monkeypatch.setattr(
+            mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav").as_posix()
+        )
         monkeypatch.setattr(mod, "_linux_player", lambda player=player: player)
         monkeypatch.setattr(mod, "_run", commands.append)
 
@@ -108,7 +110,7 @@ def test_notify_plays_windows_sound(monkeypatch):
     commands: list[list[str]] = []
 
     monkeypatch.setattr(mod, "_platform", lambda: "windows")
-    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav"))
+    monkeypatch.setattr(mod, "_sound_path", lambda event: Path(f"/sounds/{event}.wav").as_posix())
     monkeypatch.setattr(mod, "_run", commands.append)
 
     notify("error")
