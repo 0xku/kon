@@ -241,6 +241,7 @@ buffer_tokens = 20000             # compact this many tokens before the context 
 [agent]
 max_turns = 500
 default_context_window = 200000
+turn_cooldown_seconds = 0         # pause this long after each LLM turn before the next one; 0 disables
 
 [tools]
 extra = ["web_search", "web_fetch"] # extra built-in tools beyond the core 6

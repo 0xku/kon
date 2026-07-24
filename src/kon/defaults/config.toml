@@ -53,6 +53,9 @@ buffer_tokens = 20000
 # Prevents runaway loops when the agent keeps calling tools or continuing.
 max_turns = 500
 default_context_window = 200000
+# Seconds to wait after each completed LLM turn before starting the next one.
+# Useful for staying under provider rate limits. 0 disables the cooldown.
+turn_cooldown_seconds = 0
 
 [tools]
 # Additional opt-in built-in tools to expose beyond the default tool set.

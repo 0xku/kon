@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from . import config as kon_config
+from .async_utils import sleep_or_cancel
 from .context import Context, formatted_agent_mds, formatted_git_context, formatted_skills
 from .core.compaction import generate_summary, is_overflow, summary_max_tokens
 from .core.errors import format_error
@@ -222,6 +223,12 @@ class Agent:
 
                 if steer_event and steer_event.is_set():
                     stop_reason = StopReason.STEER
+                    break
+
+                cooldown = kon_config.agent.turn_cooldown_seconds
+                if cooldown > 0 and await sleep_or_cancel(cooldown, cancel_event):
+                    stop_reason = StopReason.INTERRUPTED
+                    yield InterruptedEvent(message="Interrupted by user")
                     break
 
                 # Check for context overflow after each turn.
