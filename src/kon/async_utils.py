@@ -38,3 +38,12 @@ async def await_or_cancel[T](work: asyncio.Future[T], cancel_event: asyncio.Even
         return work.result()
     finally:
         await cancel_and_await(cancel)
+
+
+async def sleep_or_cancel(delay: float, cancel_event: asyncio.Event | None) -> bool:
+    """Sleep for `delay` seconds, returning True if cancelled early instead of completing."""
+    try:
+        await await_or_cancel(asyncio.create_task(asyncio.sleep(delay)), cancel_event)
+        return False
+    except OperationCancelledError:
+        return True

@@ -112,6 +112,7 @@ class CompactionConfig(BaseModel):
 class AgentConfig(BaseModel):
     max_turns: int = 500
     default_context_window: int = 200000
+    turn_cooldown_seconds: float = 0
 
 
 class PermissionsConfig(BaseModel):

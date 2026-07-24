@@ -33,7 +33,7 @@ from enum import Enum, StrEnum, auto
 from pydantic import ValidationError
 
 from . import config as kon_config
-from .async_utils import OperationCancelledError, await_or_cancel
+from .async_utils import OperationCancelledError, await_or_cancel, sleep_or_cancel
 from .core.errors import format_error
 from .core.types import (
     AssistantMessage,
@@ -255,14 +255,6 @@ async def _await_approval(
         return None
 
 
-async def _sleep_or_cancel(delay: float, cancel_event: asyncio.Event | None) -> bool:
-    try:
-        await await_or_cancel(asyncio.create_task(asyncio.sleep(delay)), cancel_event)
-        return False
-    except OperationCancelledError:
-        return True
-
-
 class _ChunkOutcome(Enum):
     CHUNK = auto()
     EXHAUSTED = auto()
@@ -376,7 +368,7 @@ class _TurnRunner:
                         delay=delay,
                         error=format_error(e),
                     )
-                    if await _sleep_or_cancel(delay, self._cancel_event):
+                    if await sleep_or_cancel(delay, self._cancel_event):
                         for event in self._interrupted_turn_end():
                             yield event
                         return
