@@ -1,3 +1,6 @@
+> [!WARNING]
+> I strongly advise you pick https://pi.dev/ instead of kon if you are looking for a minimal coding agent. While kon works and is quite feature packed, it's not up to date with what we have come to expect from modern coding agents. Pi especially uses tricks to keep the cache warm to help save on token costs (there are many other quality of life improvements there which I just won't be able to add to kon). Kon still makes for a great study into how to make a good coding agent. Please consider forking and maintaining it if you still decide to use it.
+
 <pre align="center">
 ░█░█░█▀█░█▀█
 ░█▀▄░█░█░█░█
