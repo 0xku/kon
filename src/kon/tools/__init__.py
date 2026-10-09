@@ -1,3 +1,5 @@
+from kon import config
+
 from ..core.types import ToolDefinition
 from .base import BaseTool
 from .bash import BashTool
@@ -10,8 +12,6 @@ from .web_search import WebSearchTool
 from .write import WriteTool
 
 __all__ = [
-    "DEFAULT_TOOLS",
-    "EXTRA_TOOLS",
     "BaseTool",
     "BashTool",
     "EditTool",
@@ -24,6 +24,7 @@ __all__ = [
     "get_tool",
     "get_tool_definitions",
     "get_tools",
+    "resolve_tools",
     "tools_by_name",
 ]
 
@@ -39,12 +40,16 @@ all_tools = [
 ]
 
 tools_by_name: dict[str, BaseTool] = {tool.name: tool for tool in all_tools}
-DEFAULT_TOOLS: list[str] = ["read", "edit", "write", "bash", "grep", "find"]
-EXTRA_TOOLS: list[str] = ["web_search", "web_fetch"]
 
 
 def get_tools(names: list[str]) -> list[BaseTool]:
     return [tool for tool in all_tools if tool.name in names]
+
+
+def resolve_tools(cli_extra: list[str] | None = None) -> tuple[list[BaseTool], list[str]]:
+    """Return the tools exposed to the agent plus any unknown configured names."""
+    names = list(dict.fromkeys(config.tools.enabled + config.tools.extra + (cli_extra or [])))
+    return get_tools(names), [name for name in names if name not in tools_by_name]
 
 
 def get_tool(tool_name: str) -> BaseTool | None:

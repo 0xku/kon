@@ -252,7 +252,8 @@ default_context_window = 200000
 turn_cooldown_seconds = 0         # pause this long after each LLM turn before the next one; 0 disables
 
 [tools]
-extra = ["web_search", "web_fetch"] # extra built-in tools beyond the core 6
+enabled = ["read", "edit", "write", "bash", "grep", "find"] # built-in tools exposed to the agent
+extra = ["web_search", "web_fetch"] # extra built-in tools beyond the enabled list
 
 [ui]
 theme = "gruvbox-dark"
@@ -274,7 +275,7 @@ The `ui.hidden_models` list trims the `/model` picker. Use a provider name (`"gi
 
 ### Core tools
 
-These are enabled by default:
+These are enabled by default through `[tools] enabled`:
 
 | Tool | What it does | Why it matters |
 | --- | --- | --- |
@@ -286,6 +287,15 @@ These are enabled by default:
 | `find` | Glob-based file discovery | Fast repo navigation with `.gitignore` awareness |
 
 This is the core experience: small, predictable, and enough for most coding tasks.
+
+`enabled` is an allowlist, so removing a tool from it hides the tool from the model
+entirely. Trim it to run a leaner agent — for example, a bash-only Kon:
+
+```toml
+[tools]
+enabled = ["bash"]
+extra = []
+```
 
 ### Extra tools
 

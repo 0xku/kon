@@ -42,7 +42,7 @@ from kon.llm.providers.mock import MockProvider
 from kon.loop import Agent
 from kon.session import Session
 from kon.tools import BashTool, ReadTool
-from kon.turn import run_single_turn
+from kon.turn import _finalize_tool_call_data, run_single_turn
 
 
 @pytest.fixture
@@ -548,6 +548,14 @@ async def test_run_single_turn_unknown_tool_scenario(sample_messages, tools):
     content = tool_result.result.content[0]
     assert isinstance(content, TextContent)
     assert "Unknown tool" in content.text
+
+
+def test_disabled_tool_is_not_executable():
+    pending = _finalize_tool_call_data(
+        {"id": "call-1", "name": "read", "arguments": "{}"}, [BashTool()]
+    )
+
+    assert pending.tool is None
 
 
 @pytest.mark.asyncio

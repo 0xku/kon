@@ -37,7 +37,7 @@ from ..llm.base import AuthMode
 from ..permissions import ApprovalResponse
 from ..runtime import ConversationRuntime
 from ..session import Session
-from ..tools import DEFAULT_TOOLS, EXTRA_TOOLS, get_tools
+from ..tools import resolve_tools
 from .agent_runner import AgentRunnerMixin
 from .autocomplete import DEFAULT_COMMANDS, SlashCommand
 from .blocks import HandoffLinkBlock, LaunchWarning
@@ -178,15 +178,11 @@ class Kon(
         self._git_branch_refresh_inflight = False
         self._launch_warnings: list[LaunchWarning] = []
 
-        cli_extra = extra_tools or []
-        merged = list(dict.fromkeys(config.tools.extra + cli_extra))
-        extra = [n for n in merged if n in EXTRA_TOOLS]
-        for name in merged:
-            if name not in EXTRA_TOOLS:
-                self._launch_warnings.append(
-                    LaunchWarning(message=f"Unknown extra tool: {name!r}", severity="warning")
-                )
-        self._tools = get_tools(DEFAULT_TOOLS + extra)
+        self._tools, unknown = resolve_tools(extra_tools)
+        for name in unknown:
+            self._launch_warnings.append(
+                LaunchWarning(message=f"Unknown tool: {name!r}", severity="warning")
+            )
 
         self._runtime = ConversationRuntime(
             cwd=self._cwd,

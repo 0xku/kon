@@ -10,7 +10,7 @@ from .events import AgentEndEvent, ErrorEvent, Event, ToolApprovalEvent, TurnEnd
 from .llm.base import AuthMode
 from .permissions import ApprovalResponse
 from .runtime import ConversationRuntime
-from .tools import DEFAULT_TOOLS, EXTRA_TOOLS, get_tools
+from .tools import resolve_tools
 
 _EXIT_CODES = {StopReason.STOP: 0, StopReason.ERROR: 1, StopReason.LENGTH: 3}
 
@@ -92,12 +92,9 @@ async def run_headless(
         openai_auth = openai_compat_auth_mode or config.llm.auth.openai_compat
         anthropic_auth = anthropic_compat_auth_mode or config.llm.auth.anthropic_compat
 
-        merged = list(dict.fromkeys(config.tools.extra + (extra_tools or [])))
-        for name in merged:
-            if name not in EXTRA_TOOLS:
-                print(f"warning: unknown extra tool: {name!r}", file=sys.stderr)
-        extras = [n for n in merged if n in EXTRA_TOOLS]
-        tools = get_tools(DEFAULT_TOOLS + extras)
+        tools, unknown = resolve_tools(extra_tools)
+        for name in unknown:
+            print(f"warning: unknown tool: {name!r}", file=sys.stderr)
 
         runtime = ConversationRuntime(
             cwd=os.getcwd(),

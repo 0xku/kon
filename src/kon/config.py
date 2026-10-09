@@ -120,6 +120,7 @@ class PermissionsConfig(BaseModel):
 
 
 class ToolsConfig(BaseModel):
+    enabled: list[str] = ["read", "edit", "write", "bash", "grep", "find"]
     extra: list[str] = []
 
 

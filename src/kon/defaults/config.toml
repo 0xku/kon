@@ -58,7 +58,10 @@ default_context_window = 200000
 turn_cooldown_seconds = 0
 
 [tools]
-# Additional opt-in built-in tools to expose beyond the default tool set.
+# Built-in tools exposed to the agent. Remove entries to disable them.
+# Available names: read, edit, write, bash, grep, find, web_search, web_fetch.
+enabled = ["read", "edit", "write", "bash", "grep", "find"]
+# Additional opt-in built-in tools to expose beyond the enabled list.
 extra = ["web_search", "web_fetch"]
 
 [ui]

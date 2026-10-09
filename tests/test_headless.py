@@ -155,7 +155,7 @@ async def test_run_headless_warns_on_unknown_extra_tool(monkeypatch, capsys):
     )
     code = await _run_headless("hi", extra_tools=["bogus"])
     assert code == 0
-    assert "unknown extra tool: 'bogus'" in capsys.readouterr().err
+    assert "unknown tool: 'bogus'" in capsys.readouterr().err
 
 
 @pytest.mark.asyncio

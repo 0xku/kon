@@ -76,7 +76,7 @@ from .events import (
 from .llm import BaseProvider
 from .llm.base import LLMStream
 from .permissions import ApprovalResponse, PermissionDecision, check_permission
-from .tools import BaseTool, get_tool, get_tool_definitions
+from .tools import BaseTool, get_tool_definitions
 
 _STREAM_EXHAUSTED = object()
 _TOOL_ARGS_TOKEN_DISPLAY_THRESHOLD = 20
@@ -176,7 +176,7 @@ def _finalize_tool_call_data(tool_call_data: dict, tools: list[BaseTool]) -> Pen
 
     tool_call = ToolCall(id=tool_call_data["id"], name=tool_call_data["name"], arguments=arguments)
 
-    tool = get_tool(tool_call.name)
+    tool = next((candidate for candidate in tools if candidate.name == tool_call.name), None)
     display = ""
     approval_preview = ""
     if tool and preflight_error is None:
