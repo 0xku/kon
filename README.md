@@ -77,7 +77,8 @@ kon
 ```text
 usage: kon [-h] [--model MODEL]
            [--provider {azure-ai-foundry,deepseek,github-copilot,openai,openai-codex,openai-responses,openrouter,xai,zhipu}]
-           [--prompt [PROMPT]] [--api-key API_KEY] [--base-url BASE_URL]
+           [--context-window CONTEXT_WINDOW] [--prompt [PROMPT]]
+           [--api-key API_KEY] [--base-url BASE_URL]
            [--openai-compat-auth {auto,required,none}]
            [--anthropic-compat-auth {auto,required,none}]
            [--insecure-skip-verify] [--continue] [--resume RESUME_SESSION]
@@ -90,6 +91,10 @@ options:
   --model, -m MODEL     Model to use
   --provider {azure-ai-foundry,deepseek,github-copilot,openai,openai-codex,openai-responses,openrouter,xai,zhipu}
                         Provider to use
+  --context-window CONTEXT_WINDOW
+                        Context window size in tokens for this run, overriding
+                        the model's catalog value and
+                        agent.default_context_window
   --prompt, -p [PROMPT]
                         Run a single prompt non-interactively, then exit (omit
                         the value or pipe stdin to read the prompt from stdin)
@@ -248,7 +253,7 @@ buffer_tokens = 20000             # compact this many tokens before the context 
 
 [agent]
 max_turns = 500
-default_context_window = 200000
+default_context_window = 200000  # fallback when the model has no catalog value; --context-window overrides it
 turn_cooldown_seconds = 0         # pause this long after each LLM turn before the next one; 0 disables
 
 [tools]

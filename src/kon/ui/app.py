@@ -117,6 +117,7 @@ class Kon(
         extra_tools: list[str] | None = None,
         openai_compat_auth_mode: AuthMode | None = None,
         anthropic_compat_auth_mode: AuthMode | None = None,
+        context_window: int | None = None,
     ):
         super().__init__()
         self.theme = self._resolve_ansi_theme()
@@ -142,6 +143,7 @@ class Kon(
         self._anthropic_compat_auth_mode: AuthMode = (
             anthropic_compat_auth_mode or config.llm.auth.anthropic_compat
         )
+        self._context_window = context_window
         self._is_running = False
         self._last_ctrl_c_time = 0.0
         self._last_ctrl_d_time = 0.0
@@ -198,6 +200,7 @@ class Kon(
             tools=self._tools,
             openai_compat_auth_mode=self._openai_compat_auth_mode,
             anthropic_compat_auth_mode=self._anthropic_compat_auth_mode,
+            context_window=self._context_window,
         )
 
     def compose(self) -> ComposeResult:
@@ -210,6 +213,7 @@ class Kon(
         yield InfoBar(
             cwd=self._cwd,
             model=self._runtime.model,
+            context_window=self._context_window,
             thinking_level=self._runtime.thinking_level,
             hide_thinking=self._hide_thinking,
             id="info-bar",

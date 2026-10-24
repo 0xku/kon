@@ -12,6 +12,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model", "-m", help="Model to use")
     parser.add_argument("--provider", choices=sorted(PROVIDER_API_BY_NAME), help="Provider to use")
     parser.add_argument(
+        "--context-window",
+        type=int,
+        default=None,
+        help=(
+            "Context window size in tokens for this run, overriding the model's "
+            "catalog value and agent.default_context_window"
+        ),
+    )
+    parser.add_argument(
         "--prompt",
         "-p",
         nargs="?",
@@ -71,6 +80,9 @@ def main() -> None:
     if args.prompt is not None and (args.continue_recent or args.resume_session):
         parser.error("-c/--continue and -r/--resume are not supported with -p/--prompt")
 
+    if args.context_window is not None and args.context_window <= 0:
+        parser.error("--context-window must be a positive integer")
+
     if args.insecure_skip_verify:
         config.llm.tls.insecure_skip_verify = True
 
@@ -98,6 +110,7 @@ def main() -> None:
                     openai_compat_auth_mode=args.openai_compat_auth,
                     anthropic_compat_auth_mode=args.anthropic_compat_auth,
                     extra_tools=extra_tools,
+                    context_window=args.context_window,
                 )
             )
         )

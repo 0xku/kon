@@ -28,6 +28,27 @@ def test_option_after_bare_prompt_falls_back_to_stdin():
     assert args.model == "x"
 
 
+def test_context_window_flag_takes_value():
+    assert build_parser().parse_args(["--context-window", "12345"]).context_window == 12345
+
+
+def test_context_window_defaults_to_none():
+    assert build_parser().parse_args([]).context_window is None
+
+
+def test_context_window_does_not_conflict_with_continue():
+    args = build_parser().parse_args(["-c", "--context-window", "1000"])
+    assert args.continue_recent is True
+    assert args.context_window == 1000
+
+
+def test_context_window_rejects_non_positive(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["kon", "--context-window", "0"])
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 2
+
+
 @pytest.mark.parametrize("flag", [["-c"], ["-r", "abc123"]])
 def test_resume_flags_rejected_with_prompt(monkeypatch, flag):
     monkeypatch.setattr(sys, "argv", ["kon", "-p", "x", *flag])

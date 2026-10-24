@@ -65,6 +65,7 @@ async def run_headless(
     openai_compat_auth_mode: AuthMode | None,
     anthropic_compat_auth_mode: AuthMode | None,
     extra_tools: list[str] | None,
+    context_window: int | None = None,
 ) -> int:
     prompt = resolve_prompt(prompt_arg, stdin=sys.stdin)
     if not prompt:
@@ -109,6 +110,7 @@ async def run_headless(
             tools=tools,
             openai_compat_auth_mode=openai_auth,
             anthropic_compat_auth_mode=anthropic_auth,
+            context_window=context_window,
         )
 
         try:

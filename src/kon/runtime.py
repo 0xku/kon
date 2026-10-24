@@ -72,6 +72,7 @@ class ConversationRuntime:
         tools: list[BaseTool],
         openai_compat_auth_mode: AuthMode = "auto",
         anthropic_compat_auth_mode: AuthMode = "auto",
+        context_window: int | None = None,
     ) -> None:
         self.cwd = cwd
         self.model = model
@@ -84,6 +85,8 @@ class ConversationRuntime:
         self.tools = tools
         self.openai_compat_auth_mode: AuthMode = openai_compat_auth_mode
         self.anthropic_compat_auth_mode: AuthMode = anthropic_compat_auth_mode
+        # Explicit CLI override. Per-run only; wins over the model catalog.
+        self.context_window = context_window
 
         self.provider: BaseProvider | None = None
         self.session: Session | None = None
@@ -461,7 +464,10 @@ class ConversationRuntime:
         self.agent.provider = self.provider
         self.agent.session = self.session
         self.agent.tools = self.tools
-        self.agent.config.context_window = model_info.context_window if model_info else None
+        model_context_window = model_info.context_window if model_info else None
+        self.agent.config.context_window = (
+            self.context_window if self.context_window is not None else model_context_window
+        )
         self.agent.config.max_output_tokens = model_info.max_tokens if model_info else None
         return self.agent
 
@@ -493,14 +499,17 @@ class ConversationRuntime:
             raise RuntimeError("Agent not initialized")
 
         tokens_before = self.latest_assistant_usage_tokens()
+        context_window = (
+            self.context_window
+            or self.agent.config.context_window
+            or kon_config.agent.default_context_window
+        )
         summary = await generate_summary(
             self.session.all_messages,
             self.provider,
             system_prompt=self.agent.system_prompt,
             max_tokens=summary_max_tokens(
-                self.agent.config.context_window or kon_config.agent.default_context_window,
-                tokens_before,
-                self.provider.config.max_tokens,
+                context_window, tokens_before, self.provider.config.max_tokens
             ),
         )
         self.session.append_compaction(

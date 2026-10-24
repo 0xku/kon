@@ -84,6 +84,7 @@ def run_tui(args: argparse.Namespace, *, extra_tools: list[str] | None) -> None:
         extra_tools=extra_tools,
         openai_compat_auth_mode=args.openai_compat_auth,
         anthropic_compat_auth_mode=args.anthropic_compat_auth,
+        context_window=args.context_window,
     )
     app.run()
 
